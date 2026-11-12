@@ -1,6 +1,8 @@
 services:
   hermes-agent:
-    image: ghcr.io/hostinger/hvps-hermes-agent:latest
+    # versión FIJA (Hermes 0.23.0, imagen de Hostinger del 06/11/2026): una recreación no trae otra sin avisar.
+    # Para actualizar: ensayo con una copia de los datos, cambiar este digest y luego harvey-tools/tras-recrear.sh
+    image: ghcr.io/hostinger/hvps-hermes-agent@sha256:c91d476b2991819de6bc899fd6bac29514bafea7e18f740281aadf61e38fe8f1
     restart: unless-stopped
     labels:
       - traefik.enable=true

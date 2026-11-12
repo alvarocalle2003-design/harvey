@@ -42,7 +42,7 @@ const secrets = JSON.parse(readFileSync(join(process.env.APPDATA, 'HarveyHUD', '
 // Un solo ssh -N -L que vive mientras viva el HUD; si se cae (sin red, reinicio del VPS) se reabre solo con espera
 // creciente. La IP del contenedor se pregunta al abrirlo (cambia si se recrea). Lo que pase mientras está caído
 // devuelve 502 y la app enseña «sin señal», como antes.
-let tunel = null, espera = 1000;
+let tunel = null, espera = 1000, fallos = 0;
 function abrirTunel() {
   execFile('ssh', [...SSH, `docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' ${CONTAINER}`],
     { timeout: 20_000 }, (err, out) => {
@@ -78,9 +78,17 @@ async function reenvia(req, res, url) {
   const ac = new AbortController();
   res.on('close', () => ac.abort()); // la ventana corta un flujo → se corta también aquí
   const conCuerpo = !['GET', 'HEAD'].includes(req.method);
-  const r = await fetch(`http://127.0.0.1:${TUNNEL_PORT}${url.pathname}${url.search}`, {
-    method: req.method, headers, signal: ac.signal, ...(conCuerpo ? { body: Readable.toWeb(req), duplex: 'half' } : {}),
-  });
+  let r;
+  try {
+    r = await fetch(`http://127.0.0.1:${TUNNEL_PORT}${url.pathname}${url.search}`, {
+      method: req.method, headers, signal: ac.signal, ...(conCuerpo ? { body: Readable.toWeb(req), duplex: 'half' } : {}),
+    });
+    fallos = 0;
+  } catch (e) {
+    // el ssh sigue vivo pero su destino no contesta (p. ej. contenedor recreado con otra IP): a los 3 fallos se reabre
+    if (!ac.signal.aborted && ++fallos >= 3) { fallos = 0; console.error('[túnel] 3 fallos seguidos: lo reabro'); tunel?.kill(); }
+    throw e;
+  }
   res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'application/octet-stream', 'Cache-Control': 'no-cache' });
   if (r.body) Readable.fromWeb(r.body).on('error', () => res.end()).pipe(res); else res.end();
 }
