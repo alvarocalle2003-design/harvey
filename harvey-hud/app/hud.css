@@ -44,7 +44,7 @@ nav.tabs button[aria-current]::after{content:"";position:absolute;left:14px;righ
 .n{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:var(--amber);color:#1a1205;font:600 11px/1 var(--mono);letter-spacing:0;vertical-align:1px}
 .status{margin-left:auto;display:flex;align-items:center;gap:18px}
 .links{display:flex;gap:12px;font:500 11px var(--mono);color:var(--muted)}
-.links>*{display:flex;align-items:center;gap:6px;font:inherit}
+.links>*{display:flex;align-items:center;gap:6px;font:inherit;white-space:nowrap}
 .links i{width:6px;height:6px;border-radius:50%;background:var(--line-hi)}
 .links .on i{background:var(--green);box-shadow:0 0 6px var(--green)}
 .links .warn i{background:var(--amber);box-shadow:0 0 6px var(--amber)}

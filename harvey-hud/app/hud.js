@@ -522,6 +522,7 @@ function cancelRun(msg) {
 $('#stop').addEventListener('click', () => cancelRun('Orden detenida, señor.'));
 addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (Vivo.abierto) return Vivo.parar();
   stopSpeaking();
   if (live) cancelRun('Orden cancelada, señor.');
   else if (convo) ear.follow(10_000); // en conversación: se calla y le escucha
@@ -1602,7 +1603,8 @@ function endConvo(despedida) {
   setState(state);
   if (despedida) phrase('fin_conversacion', { show: hint });
 }
-const toggleConvo = () => (convo ? endConvo(false) : startConvo());
+// con «en vivo» encendido (vivo.js), º abre y cierra la conversación con Gemini Live
+const toggleConvo = () => (Vivo.activo || Vivo.abierto ? Vivo.alternar() : convo ? endConvo(false) : startConvo());
 
 // ---------- Oído del PC: «Oye Harvey» + conversación (Web Speech API de Edge) ----------
 const ear = (() => {
@@ -1824,7 +1826,7 @@ function start() {
   let r;
   try { r = await fetch('/api/ping'); } catch { return aviso('Sin conexión con Harvey', true); }
   const j = r.ok ? await r.json().catch(() => ({})) : {}; // sin sesión (401) solo puede ser el iPhone
-  PC = !!j.pc; PREFIX = PC ? 'hud-' : 'movil-';
+  PC = !!j.pc; PREFIX = PC ? 'hud-' : 'movil-'; Vivo.pintar();
   document.body.classList.add(PC ? 'pc' : 'movil');
   if (!PC) input.placeholder = 'Escriba a Harvey…';
   if (r.status === 401) return showLogin();
