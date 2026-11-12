@@ -26,6 +26,8 @@ limpio = lambda s: " ".join(INVISIBLES.sub("", html.unescape(s or "")).split())
 
 # Peticiones del señor (remitente / texto en minúsculas). Para añadir una: otra línea con su motivo.
 NO_AVISAR = [
+    # 12/11: el señor no quiere avisos de reservas de evaluaciones de la piscina de 42.
+    lambda de, txt: "no-reply@42.fr" in de and "you have a new booking" in txt,
     # 21/10: «No me notifiques nunca más los correos de Sage». 31/10: Sage era un ejemplo, el señor no quiere avisos de
     # spam ni publicidad. Los envíos masivos se delatan en la cabecera del extracto («Versión online | Publicidad»,
     # «Ver en el navegador»), cosa que una persona no escribe; lo que Gmail ya manda a Spam nunca llega aquí (in:inbox)

@@ -39,13 +39,17 @@ Fórmulas automáticas (solo lectura, no las escribas): Objetivos.**Semáforo** 
   - Fechas: `AAAA-MM-DD`, `31/10`, `"15 de octubre de 2027"`, `hoy`, `mañana`, `lunes`…`domingo`, con hora opcional (`"sábado 18:30"`).
   - Pasa las palabras del señor tal cual: el script busca por parecido. Si responde con dudas u opciones (código 2), pregunta al señor con esas opciones. Confirma solo lo que diga la línea «✓»: el script ya ha releído Notion para comprobarlo.
   - **Objetivo**: elige el objetivo concreto más cercano por su título (`--objetivo "galeón Argizari"`); si el señor solo nombra un área con varios objetivos, el script te los listará. Si no encaja con ninguno, omite `--objetivo`: va a «Genérico» (lo pidió el señor). Prioridad por defecto: Media.
-  - Cuando el señor dicta una tarea para una fecha, esa es la Fecha de la tarea (no un evento de calendario). Si además dice para cuándo quiere el resultado, ponlo en `--notas`. Si pide «recuérdamelo», además de la tarea programa el aviso como siempre (cronjob «Recordatorio: …»).
+  - Si el señor dicta una tarea para una fecha, esa es la Fecha de la tarea (no un evento de calendario). Si además dice para cuándo quiere el resultado, ponlo en `--notas`. Si pide «recuérdamelo», además de la tarea programa el aviso como siempre (cronjob «Recordatorio: …»).
+  - Para un recordatorio repetido durante un solo día, usa `cronjob_manage` con avisos puntuales a intervalos razonables, desde la hora de inicio que indique hasta la última hora útil del día. No crees un ciclo indefinido. Si no especifica horas, empieza a las 09:00 y distribuye varios avisos durante la jornada, evitando las 22:00-09:00. En el texto de cada aviso, pide al señor que confirme cuando lo haya hecho.
+  - Si el señor dice que ya completó algo sujeto a avisos repetidos, consulta primero `cronjob_manage` con `action: list`, identifica los avisos pendientes de ese asunto y elimínalos con `action: remove`; no dejes recordatorios obsoletos activos. No prometas cancelar avisos futuros automáticamente salvo que exista un flujo que pueda detectar esa confirmación.
   - Si el señor señala objetivos que deberían ser tareas, crea una tarea por objetivo con su título y fecha, y pide confirmación antes de tocar el objetivo.
 - **Objetivos**: cambiar Estado o Fecha límite, o crear/borrar objetivos, requiere confirmación de Álvaro. Nunca borres páginas.
 - **Metas de hábitos** (los únicos que se siguen desde el 16/10/2026; semana de lunes a domingo): gimnasio 5 días/semana, lectura 4 h/semana, Instagram máximo 15 min/día. A las 22:00 un cron le avisa al iPhone si falta algo por marcar o si lleva una mala racha.
 - **Revisión**: al hacer resúmenes, señala objetivos con Fecha límite en los próximos 30 días que no estén "Hecho" y marca como riesgo los que no tengan tareas activas.
 
 ## Consultas eficientes (importante)
+
+- Si un aviso automático de Kanban indica que una tarjeta terminó o pasó a revisión, primero consulta el tablero indicado para comprobar el estado actual y las tarjetas hijas ya existentes. Trata la notificación como estado, no como una petición de recrear trabajo; no dupliques tareas ni dependencias. Si no hay nada que el señor deba decidir y el flujo sigue correctamente, responde `[SILENT]`.
 
 - Para recuentos o resúmenes de objetivos, tareas y hábitos usa primero la skill `foto-rapida`: recorre la base entera (con `page_size` ≤ 20 te faltarían filas y darías cifras erróneas).
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Credencial de GitHub para el equipo de Harvey: lee GITHUB_TOKEN de /opt/data/.env (la mete el señor con hermes-claves.ps1).
+[ "$1" = get ] || exit 0
+echo username=x-access-token
+echo "password=$(grep '^GITHUB_TOKEN=' /opt/data/.env | cut -d= -f2- | tr -d '"\r')"

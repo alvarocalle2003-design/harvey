@@ -31,7 +31,8 @@ $G download FILE_ID --output /opt/data/workspace/drive/NOMBRE                   
 
 ## Reglas
 
-- **Entregar siempre en Drive**: cualquier documento que generes para el señor (informe, documento, imagen, hoja) súbelo a «Entregables de Harvey» y dale el enlace (`webViewLink`) en tu respuesta. Si hay varios archivos o es un proyecto, crea una subcarpeta con nombre claro.
+- **Entregar siempre en Drive**: cualquier documento que generes para el señor (informe, documento, imagen, hoja) súbelo a «Entregables de Harvey» y dale el enlace (`webViewLink`) en tu respuesta. Si hay varios archivos o es un proyecto, crea una subcarpeta con nombre claro; sube los archivos fuente clave y los adjuntos visuales (por ejemplo, PNG) que el señor necesitará ver, no solo el informe que los describe. No subas entregas de agentes mientras el señor no haya recibido la revisión final y Harvey haya comprobado que responden al encargo; la revisión formal no sustituye el juicio del jefe de gabinete.
+- **Cierra el ciclo de entrega**: tras crear la carpeta y subir los archivos, búscala por su ID con `drive search` y verifica que cada nombre esperado aparece; una respuesta de carga exitosa confirma el alta, pero la lectura de vuelta detecta entregas incompletas.
 - **Código**: no va a Drive. Vive en los repositorios privados de GitHub del señor y lo lleva Leonardo; al señor se le da el enlace del repositorio o de la rama.
 - **Lo que deja el señor**: cuando diga que te ha dejado algo (o pregunte si lo has visto), busca en «Para Harvey», descárgalo a `/opt/data/workspace/drive/` y trabaja sobre la copia. No borres nada de su Drive.
 - Nombres de archivo con fecha delante cuando sean versiones: `2026-10-14 Informe X.pdf`.
