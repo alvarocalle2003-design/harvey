@@ -1048,7 +1048,8 @@ async function refreshTablero() {
   finally { tbBusy = false; }
 }
 // Tablero y Oficina se refrescan cada 8 s mientras se miran (la Oficina reacciona a cada cambio de los tableros)
-setInterval(() => { if (['tablero', 'oficina'].includes(document.body.dataset.screen) && (PC || document.visibilityState === 'visible')) refreshTablero(); }, 8_000);
+// solo con la ventana a la vista, también en el PC: antes animaba la Oficina cada 8 s aunque nadie mirase (auditoría F1)
+setInterval(() => { if (['tablero', 'oficina'].includes(document.body.dataset.screen) && document.visibilityState === 'visible') refreshTablero(); }, 8_000);
 const paintFiltro = () => $$('#tb-filtro [data-tb]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.tb === tb.filtro)));
 $$('#tb-filtro [data-tb]').forEach((b) => b.addEventListener('click', () => {
   tb.filtro = b.dataset.tb; save('tbFiltro', tb.filtro); paintFiltro();
@@ -1430,7 +1431,7 @@ async function refreshSistema(forzar) {
   catch (e) { $('#sy-tareas').innerHTML = `<li class="quiet">No llegan los datos: ${esc(e.message)}</li>`; }
   finally { syBusy = false; }
 }
-setInterval(() => { if (document.body.dataset.screen === 'sistema' && (PC || document.visibilityState === 'visible')) refreshSistema(true); }, 60_000);
+setInterval(() => { if (document.body.dataset.screen === 'sistema' && document.visibilityState === 'visible') refreshSistema(true); }, 60_000);
 $('#sy-avisos').addEventListener('toggle', (e) => { const id = e.target.dataset?.id; if (id) e.target.open ? syAbiertos.add(id) : syAbiertos.delete(id); }, true);
 
 const meter = (label, frac, txt, sub = '') => {

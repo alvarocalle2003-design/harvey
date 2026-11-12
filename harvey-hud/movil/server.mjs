@@ -42,6 +42,24 @@ crear un evento...), no lo hagas aún: pregúntaselo y él te contestará en el 
 // Siri entra con su propia llave (cabecera Authorization: Bearer), puesta por el señor con clave-siri.ps1
 const SIRI_TOKEN = process.env.HUD_SIRI_TOKEN || env.HUD_SIRI_TOKEN || ''; // la variable de entorno solo sirve para pruebas
 
+// ---------- El PC (harvey-hud/server.mjs) entra por un túnel SSH fijo a un puerto aparte (PC_PORT) ----------
+// Ese puerto no lo publica Traefik (solo se alcanza desde el propio servidor) y pide la llave del API de Harvey,
+// que el PC ya tiene en su secrets.json. Así el PC deja de abrir un ssh + docker exec por cada dato (antes 18.000 al día).
+const PC_PORT = +process.env.PC_PORT || 7790;
+const VOICE_RULES = `Estás respondiendo por voz desde el HUD del escritorio del señor: tu respuesta se leerá ENTERA en voz alta.
+No empieces con "Recibido", "Entendido" ni repitas la orden; ve directo al resultado.
+Escribe para ser escuchado y dilo todo, sin recortar: frases naturales, sin markdown, viñetas, tablas, emojis ni símbolos.
+Nunca metas enlaces ni direcciones de correo en las frases; si uno es útil, ponlo solo en la última línea (se ve en pantalla, no se lee).
+Si necesitas que el señor confirme algo (enviar un correo, crear un evento...), termina con una pregunta de sí o no: el HUD le mostrará botones para responder.
+Los archivos que el señor adjunta desde el HUD están en ${UPLOADS}/; para imágenes usa vision_analyze con esa ruta.`;
+// Modo conversación (tecla º): el HUD vuelve a escuchar solo tras cada respuesta
+const CONVO_RULES = `
+Estáis en una conversación por voz continua: tras tu respuesta el HUD vuelve a escucharle sin que diga «Oye Harvey». Contesta como en una charla.
+Si el señor da la conversación por terminada (se despide, dice que eso es todo...), despídete en una frase y termina tu respuesta exactamente con [FIN].`;
+const CLAUDE_RULES = `Este mensaje te lo envía Claude Code, el agente programador del señor que trabaja en su PC, no el señor directamente.
+Colaboráis como equipo: contesta de forma directa y técnica, sin formalidades. Puedes usar tus herramientas (Notion, Gmail, Calendar...) para ayudarle.
+Para acciones con efectos fuera (enviar correos, borrar, crear eventos) aplica las mismas reglas de confirmación que con el señor.`;
+
 // ---------- Voz de Harvey (voz.mjs, Gemini), igual que el HUD del PC ----------
 // shortcut: frases.json es una copia del de harvey-hud/; si se edita allí, volver a subirla aquí.
 const frases = () => JSON.parse(readFileSync(join(import.meta.dirname, 'frases.json'), 'utf8'));
@@ -118,7 +136,9 @@ function hud(script, args, input = '') {
 // Automatizaciones del iPhone (editable sin reiniciar)
 const disparadores = () => JSON.parse(readFileSync(join(import.meta.dirname, 'disparadores.json'), 'utf8'));
 
-const session = (s) => (/^movil-[\w-]{1,40}$/.test(s || '') ? s : 'movil-principal');
+// Conversaciones: movil-… desde el iPhone; el PC usa las suyas (hud-…)
+const session = (s, pc = false) => (/^movil-[\w-]{1,40}$/.test(s || '') || (pc && /^hud-[\w-]{1,40}$/.test(s || '')) ? s
+  : pc ? 'hud-escritorio' : 'movil-principal');
 // El contenedor va en UTC: los días se cuentan en hora de Madrid
 const madridDay = (t = Date.now()) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(t));
 // Siri: misma regla que la app, conversación nueva tras 1 h sin órdenes o al cambiar de día.
@@ -367,14 +387,29 @@ const routes = {
     json(res, { ok: true }, 200, { 'Set-Cookie': `hm=${TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict` });
   },
   'GET /api/ping': async (req, res) => json(res, { ok: true }),
-  // Lanza una orden; devuelve { run_id }
+  'GET /api/health': async (req, res) => pipe(await harvey('/v1/health'), res),
+  // Lanza una orden; devuelve { run_id }. Desde el PC: reglas de voz del HUD (y de conversación con convo) y sin push
   'POST /api/ask': async (req, res) => {
-    const { text, session: s } = await readBody(req);
+    const { text, session: s, convo } = await readBody(req);
     if (!text?.trim()) return json(res, { error: 'Orden vacía' }, 400);
-    const r = await harvey('/v1/runs', { method: 'POST', body: JSON.stringify({ input: text, instructions: MOBILE_RULES }) }, session(s));
+    const key = session(s, req.pc), instructions = req.pc ? VOICE_RULES + (convo ? CONVO_RULES : '') : MOBILE_RULES;
+    const r = await harvey('/v1/runs', { method: 'POST', body: JSON.stringify({ input: text, instructions }) }, key);
     const j = await r.json();
-    if (j.run_id) watch(j.run_id, session(s));
+    if (j.run_id && !req.pc) watch(j.run_id, key);
     json(res, j, r.status);
+  },
+  // Canal de Claude Code (harvey-hud/harvey.mjs, solo desde el PC): conversación por día y respuesta completa al terminar
+  'POST /api/claude': async (req, res) => {
+    if (!req.pc) return json(res, { error: 'Solo desde el PC' }, 403);
+    const { text } = await readBody(req);
+    if (!text?.trim()) return json(res, { error: 'Mensaje vacío' }, 400);
+    const sesion = 'claude-code-' + madridDay();
+    const run = await (await harvey('/v1/runs', { method: 'POST', body: JSON.stringify({ input: text, instructions: CLAUDE_RULES }) }, sesion)).json();
+    if (!run.run_id) return json(res, { error: run.error?.message || 'Harvey no aceptó el mensaje' }, 502);
+    // el flujo termina al acabar la ejecución; tope de 10 min por si Harvey se queda esperando
+    const sse = await (await harvey(`/v1/runs/${run.run_id}/events`, { signal: AbortSignal.timeout(600_000) }, sesion)).text();
+    const done = sse.split('\n').filter((l) => l.startsWith('data: ')).map((l) => JSON.parse(l.slice(6))).findLast((e) => e.event?.startsWith('run.'));
+    json(res, { ok: done?.event === 'run.completed', output: done?.output ?? done?.error ?? 'sin respuesta' });
   },
   // Eventos en directo (SSE). Harvey numera cada evento: al volver a la app se pide desde el último visto (last_seq)
   'GET /api/events': async (req, res, url) => {
@@ -382,20 +417,20 @@ const routes = {
     const run = encodeURIComponent(q.get('run') || ''), w = runs.get(q.get('run'));
     if (w) { w.streams++; res.on('close', () => w.streams--); }
     pipe(await harvey(`/v1/runs/${run}/events`, { signal: untilClosed(res), headers: /^\d+$/.test(last || '') ? { 'Last-Event-ID': last } : {} },
-      session(q.get('session'))), res);
+      session(q.get('session'), req.pc)), res);
   },
   // Estado y resultado final de una orden (si la app estuvo cerrada mientras Harvey trabajaba)
   'GET /api/run': async (req, res, url) => pipe(await harvey(`/v1/runs/${encodeURIComponent(url.searchParams.get('run') || '')}`, {},
-    session(url.searchParams.get('session'))), res),
+    session(url.searchParams.get('session'), req.pc)), res),
   'POST /api/stop': async (req, res) => {
     const { run, session: s } = await readBody(req);
-    await pipe(await harvey(`/v1/runs/${encodeURIComponent(run)}/stop`, { method: 'POST', body: '{}' }, session(s)), res);
+    await pipe(await harvey(`/v1/runs/${encodeURIComponent(run)}/stop`, { method: 'POST', body: '{}' }, session(s, req.pc)), res);
   },
   'POST /api/approval': async (req, res) => {
     const { run, choice, request_id, session: s } = await readBody(req);
     await pipe(await harvey(`/v1/runs/${encodeURIComponent(run)}/approval`, {
       method: 'POST', body: JSON.stringify({ choice, ...(request_id ? { request_id } : {}) }),
-    }, session(s)), res);
+    }, session(s, req.pc)), res);
   },
   // Voz: texto → mp3 (o en directo con stream); confirmación inmediata según la orden; frase del repositorio por tipo
   'POST /api/tts': async (req, res) => {
@@ -526,7 +561,7 @@ const routes = {
     const code = await sendPush(vapid, s, { title: 'Avisos activados', body: 'Le avisaré aquí cuando termine una orden, necesite su permiso o llegue correo importante.', tag: 'prueba' });
     json(res, { ok: code < 300, code });
   },
-  'POST /api/visible': async (req, res) => { appVisible = !!(await readBody(req)).v; json(res, { ok: true }); },
+  'POST /api/visible': async (req, res) => { const v = !!(await readBody(req)).v; if (!req.pc) appVisible = v; json(res, { ok: true }); },
   // Foto o archivo del señor → carpeta de trabajo de Harvey; devuelve su ruta allí
   'POST /api/upload': async (req, res, url) => {
     const size = +req.headers['content-length'] || 0;
@@ -543,13 +578,19 @@ const routes = {
 
 process.on('uncaughtException', (e) => console.error('[error]', e)); // un fallo puntual no tumba el servidor
 
-http.createServer(async (req, res) => {
+const atiende = async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY'); // nadie puede meter la app en un marco de otra web
   res.setHeader('Referrer-Policy', 'no-referrer');
   try {
     const route = routes[`${req.method} ${url.pathname}`];
+    if (req.pc) { // puerto del PC: solo la API, con la llave del API de Harvey
+      const given = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      if (!env.API_SERVER_KEY || !same(given, env.API_SERVER_KEY)) return json(res, { error: 'Llave no válida' }, 401);
+      if (!route || url.pathname.startsWith('/api/siri') || url.pathname === '/api/login') return json(res, { error: 'No existe' }, 404);
+      return await route(req, res, url);
+    }
     if (route) {
       if (!['/api/login', '/api/siri', '/api/siri/sigue'].includes(url.pathname) && !authed(req)) return json(res, { error: 'Necesita iniciar sesión' }, 401);
       return await route(req, res, url);
@@ -565,4 +606,9 @@ http.createServer(async (req, res) => {
     console.error(e);
     if (!res.headersSent) json(res, { error: String(e.message || e) }, 502); else res.end();
   }
-}).listen(PORT, '0.0.0.0', () => console.log(`[${new Date().toISOString()}] HUD de bolsillo en :${PORT}${PASSWORD ? '' : ' (SIN contraseña: nadie puede entrar)'}`));
+};
+http.createServer(atiende)
+  .listen(PORT, '0.0.0.0', () => console.log(`[${new Date().toISOString()}] HUD de bolsillo en :${PORT}${PASSWORD ? '' : ' (SIN contraseña: nadie puede entrar)'}`));
+// Traefik solo publica PORT; este lo alcanza el túnel del PC desde el propio servidor
+http.createServer((req, res) => { req.pc = true; atiende(req, res); })
+  .listen(PC_PORT, '0.0.0.0', () => console.log(`[${new Date().toISOString()}] Entrada del PC en :${PC_PORT}`));
