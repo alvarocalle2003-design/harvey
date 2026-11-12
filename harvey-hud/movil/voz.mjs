@@ -21,6 +21,18 @@ export const hablable = (text) => String(text || '').replace(/\[FIN\]/g, '').spl
   .map((l) => (/[.!?…:;,]$/.test(l) ? l : l + '.'))
   .join(' ').replace(/\s+([,.;:!?])/g, '$1').replace(/,([.!?])/g, '$1').trim();
 
+// Qué «Recibido» toca (frases.json → ack) según cómo EMPIEZA la orden, no por palabras sueltas: «no me notifiques los
+// correos» no es «reviso su correo». Cada regla lleva «si» (expresión regular) y sus «frases»; gana la primera que
+// casa y la última, con «si» vacío, es la de por defecto. La expresión se prueba contra la orden en minúsculas, sin
+// tildes (ñ → n), sin saludos ni muletillas al principio, y con «¿» delante si es una pregunta.
+const MULETILLAS = /^(?:(?:oye|hey|ey|vale|bueno|bien|ok|okey|perfecto|genial|venga|pues|y|ah|eh|claro|harvey|harvi|harry|jarvis|por favor|buenos dias|buenas tardes|buenas noches|buenas|hola|gracias|luego|tambien|ahora|entonces)\b[\s,.;:!¡¿]*)+/;
+export function ordenLlana(text) {
+  const t = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const pregunta = t.startsWith('¿') || /\?\s*$/.test(t);
+  return (pregunta ? '¿' : '') + t.replace(/^[¿¡\s]+/, '').replace(MULETILLAS, '');
+}
+export const reglaAck = (reglas, text) => { const t = ordenLlana(text); return reglas.find((r) => !r.si || new RegExp(r.si).test(t)); };
+
 // La respuesta trae el audio en algún bloque { type: 'audio', data }: se busca sin depender del anidamiento exacto
 const audioData = (o) => {
   if (Array.isArray(o)) return o.map(audioData).filter(Boolean).at(-1);

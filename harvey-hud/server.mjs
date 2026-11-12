@@ -11,7 +11,7 @@ import { Readable } from 'node:stream';
 import { homedir } from 'node:os';
 import { format } from 'node:util';
 import { createHash } from 'node:crypto';
-import { tts as voz, tipo, enviarEnDirecto, VOICE, MODEL } from './movil/voz.mjs'; // la misma voz que el móvil, Siri y Telegram
+import { tts as voz, tipo, enviarEnDirecto, reglaAck, VOICE, MODEL } from './movil/voz.mjs'; // la misma voz que el móvil, Siri y Telegram
 
 // PORT y TUNNEL_PORT por variable de entorno solo para pruebas (una copia gemela al lado del HUD de verdad)
 const PORT = +process.env.PORT || 7777, TUNNEL_PORT = +process.env.TUNNEL_PORT || 18790;
@@ -97,7 +97,7 @@ async function reenvia(req, res, url) {
 const FRASES = join(import.meta.dirname, 'frases.json');
 const frases = () => JSON.parse(readFileSync(FRASES, 'utf8'));
 const any = (list) => list[Math.floor(Math.random() * list.length)];
-const ackList = (text) => frases().ack.find(r => !r.si || new RegExp(`\\b(?:${r.si})`, 'i').test(text)).frases;
+const ackList = (text) => reglaAck(frases().ack, text).frases;
 
 // Responde con una frase de la lista: mp3 (texto en X-Ack-Text) o solo { phrase } si la voz está silenciada.
 // Modo «solo frases» (cachedOnly): únicamente variantes ya guardadas en disco; si no hay ninguna, solo texto.

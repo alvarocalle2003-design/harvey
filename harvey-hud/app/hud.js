@@ -168,12 +168,13 @@ async function playStream(r, gen) {
   if (last && gen === playGen) await ended(last, at - ctx.currentTime);
   liveSrc = [];
 }
-function enqueueSpeech(fetchAudio, onStart) {
+// still(): se pregunta justo antes de sonar; si ya no viene a cuento (p. ej. un «Un momento» cuando Harvey ya contesta), no suena
+function enqueueSpeech(fetchAudio, onStart, still) {
   const gen = playGen, dataP = fetchAudio().catch(() => null);
   pending++;
   speechChain = speechChain.then(async () => {
     const data = await dataP;
-    if (gen === playGen && data) { onStart?.(); await (data instanceof Response ? playStream(data, gen) : playBuffer(data)).catch(() => {}); }
+    if (gen === playGen && data && (!still || still())) { onStart?.(); await (data instanceof Response ? playStream(data, gen) : playBuffer(data)).catch(() => {}); }
   }).finally(() => { if (--pending === 0) afterSpeech(); });
 }
 // Qué hacer al acabar de hablar: { ms, aviso } = escuchar sin «Oye Harvey»; 'fin' = cerrar la conversación
@@ -213,7 +214,7 @@ const soloVoz = (s) => s.replace(/\[FIN\]/g, '').split(/\n\s*-{3,}/)[0];
 const corte = (s, min) => { let k = -1; for (const m of s.matchAll(/[.!?…:]+\s+|\n+/g)) k = m.index + m[0].length; return k >= min ? k : -1; };
 // Frases del repositorio (frases.json): el servidor las guarda en disco y solo gastan voz la primera vez. En «solo frases»
 // solo suenan las ya guardadas. show(texto) se llama al empezar a sonar, o enseguida si va en texto.
-function sayLine(path, body, { show: showText, voice = true } = {}) {
+function sayLine(path, body, { show: showText, voice = true, still } = {}) {
   const silent = () => post(path, { ...body, silent: true }).then((r) => r.json()).then((j) => showText?.(j.phrase)).catch(() => {});
   if (voiceMode === 'off' || !voice) return silent();
   let text = '';
@@ -223,7 +224,7 @@ function sayLine(path, body, { show: showText, voice = true } = {}) {
     if (r.headers.get('content-type')?.includes('json')) { showText?.((await r.json()).phrase); return null; }
     text = decodeURIComponent(r.headers.get('X-Ack-Text') || '');
     return r.arrayBuffer();
-  }, () => showText?.(text));
+  }, () => showText?.(text), still);
 }
 const phrase = (kind, opts) => sayLine('phrase', { kind }, opts);
 // pitido corto al empezar (y al dejar) de escuchar: sintetizado, no gasta nada
@@ -365,6 +366,7 @@ async function ask(text, { voz = false } = {}) {
   const L = live = { msg: m, session, seq: -1, out: '', dicho: 0, lastEvent: Date.now() };
   setBusy(true);
   setState('thinking', files.length ? 'Subiendo archivos…' : null);
+  armWait(L);
   const aboutFiles = files.length && (!text || /\b(est[eoa]s?|archivos?|imagen(es)?|fotos?|documentos?|adjuntos?|pdf)\b/i.test(text));
   const showAck = (p) => { if (p) { m.ack = p; repaint(m); persist(); } };
   if (!convo) (aboutFiles ? phrase('archivo', { show: showAck }) : sayLine('ack', { text }, { show: showAck })); // en conversación, sin «Recibido»
@@ -389,9 +391,27 @@ function setBusy(on) {
   document.body.classList.toggle('busy', on);
   $('#stop').hidden = !on; $('#send').hidden = on; $('#mic').hidden = on && !PC;
   $('#ops-live').textContent = on ? 'trabajando' : 'en reposo';
-  clearTimeout(live?.waitTimer);
-  // si tarda, Harvey avisa una vez de que sigue con ello (frase guardada): en conversación, «Un momento» a los 10 s
-  if (on && live) live.waitTimer = setTimeout(() => { if (live && !live.approval && state === 'thinking') phrase(convo ? 'un_momento' : 'espera', { show: hint }); }, convo ? 10_000 : 25_000);
+}
+// Frase de espera («Un momento, señor»): una sola vez por orden que el señor acaba de dar (no en las recuperadas ni en
+// las del despertador) y solo si a esas alturas Harvey sigue callado: no ha empezado a escribir la respuesta y no hay
+// voz sonando ni en cola. Antes saltaba a los 10 s (25 fuera de conversación) pasara lo que pasara, y se colaba entre
+// la primera frase de la respuesta y el resto. En conversación, a los 10 s; fuera, a los 25 (ya sonó el «Recibido»).
+function armWait(L) {
+  const callado = () => live === L && !L.approval && !L.out.trim();
+  const tick = () => {
+    if (!callado()) return; // ya contesta, terminó o espera una autorización: no hace falta
+    if (pending || state !== 'thinking') { L.waitTimer = setTimeout(tick, 2000); return; } // aún suena otra frase
+    phrase(waitKind(L), { show: hint, still: callado });
+  };
+  L.waitTimer = setTimeout(tick, convo ? 10_000 : 25_000);
+}
+// qué frase de espera viene a cuento, según lo que Harvey esté haciendo en ese momento (el paso en marcha)
+function waitKind(L) {
+  const t = L.msg.tools?.findLast((x) => x.s === 'run');
+  if (t?.label === 'Claude Code programando') return 'espera_programar';
+  if (/^sub:|^delegate_task$/.test(t?.tool || '')) return 'espera_delegado';
+  if (/^web_|^browser_/.test(t?.tool || '')) return 'espera_buscar';
+  return convo ? 'un_momento' : 'espera';
 }
 // Eventos en directo. Harvey numera cada evento (seq): si el flujo se corta se vuelve a pedir desde el último visto.
 function listen() {
@@ -1526,9 +1546,9 @@ setInterval(() => { if (PC || document.visibilityState === 'visible') refresh();
 const notified = { mails: null, avisos: null, events: new Set() };
 // tipo de aviso → [título, resaltado, frase guardada para el modo «solo frases»]
 const AVISO = {
-  pensamiento: ['Harvey sugiere', false, 'pensamiento'], seguimiento: ['Harvey pregunta', false, 'pensamiento'],
+  pensamiento: ['Harvey sugiere', false, 'pensamiento'], seguimiento: ['Harvey pregunta', false, 'seguimiento'],
   recordatorio: ['Recordatorio', true, 'recordatorio'], correo: ['Correo importante', true, 'correo_importante'],
-  cupo: ['Cupo de ChatGPT', true, 'recordatorio'], equipo: ['Equipo de Harvey', true, 'recordatorio'],
+  cupo: ['Cupo de ChatGPT', true, 'aviso_cupo'], equipo: ['Equipo de Harvey', true, 'aviso_equipo'],
 };
 function proactive(s) {
   const voiceKinds = [];
@@ -1785,7 +1805,8 @@ async function boot() {
   if (live) return; // ya recogió una orden a medias o un turno del despertador: sin saludo que lo pise
   setState('idle');
   const mails = snap.gmail?.ok ? snap.gmail.data.length : 0;
-  greet(mails ? ` Tiene ${mails} ${mails === 1 ? 'correo' : 'correos'} sin leer.` : '');
+  // sin conexión no toca un «todos los sistemas operativos»
+  if (harveyOk) greet(mails ? ` Tiene ${mails} ${mails === 1 ? 'correo' : 'correos'} sin leer.` : ''); else phrase('sin_conexion', { show: hint });
 }
 
 // Al abrir: si quedó una orden a medias (app cerrada o recargada mientras Harvey trabajaba), se recupera

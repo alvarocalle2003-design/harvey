@@ -11,7 +11,7 @@ import { createInterface } from 'node:readline';
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { loadVapid, sendPush } from './push.mjs';
-import { tts as voz, tipo, hablable, enviarEnDirecto, VOICE, MODEL } from './voz.mjs';
+import { tts as voz, tipo, hablable, enviarEnDirecto, reglaAck, VOICE, MODEL } from './voz.mjs';
 
 const PORT = +process.env.PORT || 7780, HARVEY = 'http://127.0.0.1:8642';
 const PUBLIC = join(import.meta.dirname, 'public');
@@ -64,7 +64,7 @@ Para acciones con efectos fuera (enviar correos, borrar, crear eventos) aplica l
 // shortcut: frases.json es una copia del de harvey-hud/; si se edita allí, volver a subirla aquí.
 const frases = () => JSON.parse(readFileSync(join(import.meta.dirname, 'frases.json'), 'utf8'));
 const any = (list) => list[Math.floor(Math.random() * list.length)];
-const ackList = (text) => frases().ack.find(r => !r.si || new RegExp(`\\b(?:${r.si})`, 'i').test(text)).frases;
+const ackList = (text) => reglaAck(frases().ack, text).frases;
 // Las frases cortas se guardan en disco (se generan una sola vez); las respuestas, en memoria un rato
 const ttsMemo = new Map();
 const cacheFile = (text) => text.length <= 80 && join(ACK_DIR, createHash('sha1').update(VOICE + MODEL + text).digest('hex') + '.mp3');
