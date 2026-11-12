@@ -17,6 +17,9 @@ services:
       - traefik.http.services.harvey-movil.loadbalancer.server.port=7780
     env_file:
       - .env
+    environment:
+      # todo el contenedor en hora de Madrid (antes solo el gateway, por /opt/data/.env)
+      - TZ=Europe/Madrid
     volumes:
       - ./data:/opt/data
       - ./movil-s6/harvey-movil:/etc/s6-overlay/s6-rc.d/harvey-movil:ro
