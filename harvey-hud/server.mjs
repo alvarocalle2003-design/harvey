@@ -16,8 +16,6 @@ import { tts as voz, tipo, enviarEnDirecto, VOICE, MODEL } from './movil/voz.mjs
 // PORT y TUNNEL_PORT por variable de entorno solo para pruebas (una copia gemela al lado del HUD de verdad)
 const PORT = +process.env.PORT || 7777, TUNNEL_PORT = +process.env.TUNNEL_PORT || 18790;
 const SSH = ['-i', join(homedir(), '.ssh', 'hermes_vps'), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'root@72.60.46.112'];
-// Voz en vivo: Gemini Live solo trae voces prediseñadas (la harvey_v2 a medida no vale aquí); Charon = grave y sobria
-const VIVO_MODELO = 'models/gemini-3.8-live', VIVO_VOZ = 'Charon';
 const CONTAINER = 'hermes-agent-ndkm-hermes-agent-1', APP_PORT = +process.env.APP_PORT || 7790; // entrada del PC del servidor de la app
 // HUD_PUBLIC por variable de entorno solo para la copia gemela: sirve el HUD nuevo (app/) sin tocar el de verdad
 const PUBLIC = process.env.HUD_PUBLIC ? resolve(import.meta.dirname, process.env.HUD_PUBLIC) : join(import.meta.dirname, 'public');
@@ -182,20 +180,6 @@ const routes = {
     const list = frases()[body.kind];
     if (!Array.isArray(list) || typeof list[0] !== 'string') return json(res, { error: 'Tipo de frase desconocido' }, 404);
     await sendPhrase(res, list, body);
-  },
-  // Conversación en vivo (app/vivo.js): token de Gemini Live de UN uso y 1 minuto para abrirla, atado al modelo.
-  // La ventana habla directamente con Google con él; la clave de Gemini no sale de este servidor.
-  'POST /api/vivo-token': async (req, res) => {
-    const ahora = Date.now();
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
-      method: 'POST', headers: { 'x-goog-api-key': secrets.gemini, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uses: 1, expireTime: new Date(ahora + 20 * 60_000).toISOString(),
-                // sin bidiGenerateContentSetup: si el token fija la configuración, Google ignora la de la ventana (instrucciones y herramienta)
-        newSessionExpireTime: new Date(ahora + 60_000).toISOString() }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.name) return json(res, { error: j.error?.message || `Google respondió ${r.status}` }, 502);
-    json(res, { token: j.name, model: VIVO_MODELO, voice: VIVO_VOZ });
   },
   // la app es la misma en el PC y en el iPhone: así sabe que está en el PC (oído de Edge, tecla º, arranque)
   'GET /api/ping': async (req, res) => json(res, { ok: true, pc: true }),
