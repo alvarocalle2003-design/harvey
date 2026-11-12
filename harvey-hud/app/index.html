@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>HARVEY</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Harvey">
+<meta name="theme-color" content="#060C14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono.png">
+<link rel="apple-touch-icon" href="icono.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="hud.css">
+</head>
+<body data-screen="harvey">
+<div class="atmos" aria-hidden="true"></div>
+
+<!-- Arranque (solo en el PC): corto y con comprobaciones de verdad -->
+<div id="boot" hidden>
+  <svg viewBox="0 0 40 40" class="mark" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="4" class="f"/></svg>
+  <b>HARVEY</b>
+  <ol id="boot-log"></ol>
+</div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="4" class="f"/></svg><b>HARVEY</b></div>
+    <nav class="tabs" aria-label="Pantallas">
+      <button type="button" data-screen="harvey" aria-current="page">Harvey</button>
+      <button type="button" data-screen="oficina">Oficina</button>
+      <button type="button" data-screen="tablero">Tablero<span class="n" data-espera hidden></span></button>
+      <button type="button" data-screen="biblioteca">Biblioteca</button>
+      <button type="button" data-screen="sistema">Sistema</button>
+    </nav>
+    <div class="status">
+      <div class="links" aria-label="Conexiones">
+        <span data-k="harvey" title="Conexión con Harvey"><i></i>harvey</span>
+        <span data-k="datos" title="Agenda, correo y Notion"><i></i>datos</span>
+        <button type="button" data-k="oido" title="Escucha de «Oye Harvey»: activar o desactivar"><i></i>oído</button>
+      </div>
+      <div class="cupo" id="cupo" title="Cupo de ChatGPT">cupo —<div><i></i></div></div>
+      <div class="voice" id="voice-mode" role="radiogroup" aria-label="Modo de voz">
+        <button type="button" role="radio" data-mode="full" title="Harvey dice todo: frases y respuestas enteras">completa</button>
+        <button type="button" role="radio" data-mode="phrases" title="Solo frases cortas («Recibido, señor»…); las respuestas, en texto">frases</button>
+        <button type="button" role="radio" data-mode="off" title="Sin voz: todo en texto">silencio</button>
+      </div>
+      <button type="button" id="voice-pill" aria-label="Voz y ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="voice-icon" d=""/></svg><span id="voice-label">voz</span>
+      </button>
+      <div class="clock"><b id="hora">--:--</b><small id="fecha">—</small></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HARVEY: tu día · Harvey · el equipo. En el teléfono, las columnas de los lados son la pantalla «Día» -->
+    <section class="screen" id="s-harvey" aria-label="Harvey">
+      <section class="col left" aria-label="Tu día">
+        <article class="panel" id="p-agenda" data-sys="agenda">
+          <div class="ph"><h2>Agenda</h2><span class="c" id="agenda-count"></span></div>
+          <div class="dayline" id="dayline" aria-hidden="true"></div>
+          <ul class="list" id="agenda"></ul>
+        </article>
+        <article class="panel" id="p-tareas" data-sys="notion">
+          <div class="ph"><h2>Tareas</h2><span class="c" id="task-count"></span></div>
+          <ul class="list" id="tasks"></ul>
+        </article>
+        <article class="panel grow" id="p-correo" data-sys="correo">
+          <div class="ph"><h2>Correo</h2><span class="c" id="mail-count"></span></div>
+          <ul class="list mail" id="mail"></ul>
+        </article>
+      </section>
+
+      <section class="center" aria-label="Conversación con Harvey">
+        <div class="stage" id="stage" role="button" tabindex="0" aria-label="Hablar con Harvey">
+          <canvas id="core" aria-hidden="true"></canvas>
+          <div class="state"><b id="st">EN ESPERA</b><small id="sth"></small></div>
+        </div>
+        <div class="convo-bar"><button type="button" id="new-chat" title="Empezar de cero con Harvey (también: «Oye Harvey, nueva conversación»)">＋ nueva conversación</button></div>
+        <div class="convo" id="log" aria-live="polite"></div>
+        <div class="choices" id="choices"></div>
+        <div class="attachments" id="attachments"></div>
+        <form class="ask" id="ask-form" autocomplete="off">
+          <button type="button" class="round" id="clip" aria-label="Adjuntar archivos o fotos" title="Adjuntar (también puede arrastrarlos o pegarlos)"><svg viewBox="0 0 24 24"><path d="M20 11.5 12 19.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.7 17.2a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
+          <input type="file" id="file" multiple hidden>
+          <textarea id="orden" rows="1" placeholder="Escriba una orden, señor…" aria-label="Orden para Harvey" enterkeyhint="send"></textarea>
+          <button type="button" class="round" id="mic" aria-label="Hablar"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+          <button type="submit" class="round main" id="send" aria-label="Enviar"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button type="button" class="round main stop" id="stop" aria-label="Detener" hidden><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" class="f"/></svg></button>
+        </form>
+      </section>
+
+      <section class="col right" aria-label="Hoy y el equipo">
+        <article class="panel brief" id="p-parte">
+          <div class="ph"><h2>Parte del día</h2><span class="c" id="parte-dia"></span></div>
+          <div id="parte"></div>
+        </article>
+        <article class="panel grow" id="p-equipo">
+          <div class="ph"><h2>El equipo ahora</h2><span class="c" id="equipo-count"></span></div>
+          <ul class="team" id="team"></ul>
+        </article>
+        <article class="panel" id="p-habitos" data-sys="notion">
+          <div class="ph"><h2>Hábitos · semana</h2><span class="c" id="hab-count"></span></div>
+          <div class="habits" id="habits"></div>
+          <div class="hread" id="hread" hidden></div>
+        </article>
+      </section>
+    </section>
+
+    <!-- OFICINA: la planta en pixel art con el equipo moviéndose según los tableros (oficina.js); la lista es la versión en texto -->
+    <section class="screen page ancha" id="s-oficina" aria-label="Oficina" hidden>
+      <div class="of">
+        <div class="of-lienzo"><canvas id="oficina" role="img" aria-label="La oficina del equipo de Harvey, vista desde arriba"></canvas>
+          <button type="button" id="of-sonido" class="of-sonido" aria-pressed="false" title="Ambiente suave: lluvia, teclados y pasos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg> sonido no</button></div>
+        <aside class="panel of-ficha" id="of-ficha" aria-live="polite" hidden></aside>
+      </div>
+      <div class="rotulo" aria-label="Lo último que ha pasado"><div id="rotulo"></div></div>
+      <p class="note of-credito">Arte de la oficina: «Modern Interiors» de LimeZu (versión gratuita, uso no comercial). La ría y el Puente Colgante, a mano.</p>
+      <article class="panel">
+        <div class="ph"><h2>El equipo</h2><span class="c">toque a cualquiera para ver su ficha</span></div>
+        <ul class="team big" id="team-oficina"></ul>
+      </article>
+    </section>
+
+    <!-- TABLERO: franja de objetivos y las tarjetas de los dos tableros, con la bandeja como columna «Te esperan» -->
+    <section class="screen page ancha" id="s-tablero" aria-label="Tablero" hidden>
+      <div class="tb-head">
+        <div class="filtro" id="tb-filtro" role="radiogroup" aria-label="Qué tablero ver">
+          <button type="button" role="radio" data-tb="">Todos</button>
+          <button type="button" role="radio" data-tb="personal">Personal</button>
+          <button type="button" role="radio" data-tb="negocio">Negocio</button>
+        </div>
+        <span class="note" id="tb-nota"></span>
+      </div>
+      <section class="objs" id="objs" aria-label="Objetivos"></section>
+      <form class="panel nuevo" id="nuevo-obj" hidden>
+        <div class="ph"><h2>Nuevo objetivo</h2><span class="c">Harvey lo convierte en ficha</span></div>
+        <label for="no-meta">Qué quiere conseguir</label>
+        <textarea id="no-meta" rows="2" required placeholder="Por ejemplo: conseguir 3 reuniones con talleres de Barakaldo este mes"></textarea>
+        <div class="row">
+          <div><label for="no-fecha">Para cuándo</label><input id="no-fecha" type="date"></div>
+          <div><label for="no-tablero">Tablero</label><select id="no-tablero"><option value="negocio">Negocio</option><option value="personal">Personal</option></select></div>
+          <div><label for="no-cupo">Cupo por día</label><select id="no-cupo"><option>10</option><option>20</option><option selected>30</option><option>50</option></select></div>
+        </div>
+        <label for="no-limites">Qué no hacer</label>
+        <textarea id="no-limites" rows="2" placeholder="Por ejemplo: no contactar con nadie sin mi visto bueno; 0 €"></textarea>
+        <p class="note">El cupo es el % de la ventana de 5 horas de ChatGPT que puede gastar al día. Harvey le preguntará lo que falte antes de ponerlo en marcha.</p>
+        <div class="acts"><button type="submit" class="si">PEDÍRSELO A HARVEY</button><button type="button" data-a="cerrar">CANCELAR</button></div>
+      </form>
+      <div class="kanban" id="kanban">
+        <section class="colk" data-col="cola"><h2>Por hacer <span class="c"></span></h2><div class="tks"></div></section>
+        <section class="colk" data-col="trabajando"><h2>Trabajando <span class="c"></span></h2><div class="tks"></div></section>
+        <section class="colk" data-col="revision"><h2>En revisión <span class="c"></span></h2><div class="tks"></div></section>
+        <section class="colk espera" data-col="espera"><h2>Te esperan <span class="c" id="ap-count"></span></h2><div class="ap" id="ap"></div></section>
+        <section class="colk" data-col="hecho"><h2>Hecho · 7 días <span class="c"></span></h2><div class="tks"></div></section>
+      </div>
+    </section>
+
+    <!-- BIBLIOTECA: la wiki del equipo como páginas, con buscador y lo último que ha cambiado. Solo tres formularios la
+         escriben (objetivo, ficha de cliente, voz de LinkedIn); lo demás, en Obsidian -->
+    <section class="screen page ancha" id="s-biblioteca" aria-label="Biblioteca" hidden>
+      <div class="bi" id="bi">
+        <aside class="bi-side">
+          <label class="bi-busca"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            <input type="search" id="bi-q" placeholder="Buscar… (p. ej. Itsasalde)" aria-label="Buscar en la biblioteca" autocomplete="off" enterkeyhint="search"></label>
+          <nav id="bi-lista" aria-label="Notas de la biblioteca"></nav>
+        </aside>
+        <article class="panel bi-nota" id="bi-nota" aria-live="polite"></article>
+      </div>
+    </section>
+
+    <!-- SISTEMA: servidor, cupos y freno, gasto por agente y por objetivo, tareas automáticas e historial de avisos -->
+    <section class="screen page" id="s-sistema" aria-label="Sistema" hidden>
+      <div class="cards">
+        <article class="panel">
+          <div class="ph"><h2>Servidor</h2><span class="c" id="ops-live">en reposo</span></div>
+          <div class="meters" id="meters"></div>
+          <div class="stats" id="today"></div>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Cupos</h2><span class="c" id="cupo-plan"></span></div>
+          <h3 class="sy-h">ChatGPT · todo el equipo</h3>
+          <div class="meters" id="cupo-meters"></div>
+          <p class="sy-freno" id="sy-freno"></p>
+          <h3 class="sy-h">Claude Code · Leonardo</h3>
+          <div id="sy-claude"><p class="quiet">Cargando…</p></div>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Gasto por agente</h2><span class="c" id="sy-ag-total"></span></div>
+          <ul class="sy-gasto" id="sy-agentes"></ul>
+          <p class="note sy-pie">Tokens = el texto que lee y escribe cada uno. ChatGPT va en su suscripción (0 € extra); lo que cuesta dinero de verdad (Gemini, el modelo de Lince) sale en $.</p>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Gasto por objetivo · hoy</h2><span class="c" id="sy-obj-total"></span></div>
+          <ul class="sy-gasto" id="sy-objetivos"></ul>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Tareas automáticas</h2><span class="c" id="sy-tareas-n"></span></div>
+          <ul class="sy-tareas" id="sy-tareas"></ul>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Historial de avisos · 7 días</h2><span class="c" id="sy-avisos-n"></span></div>
+          <ul class="sy-avisos" id="sy-avisos"></ul>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Últimas conversaciones</h2></div>
+          <ul class="list ops" id="ops"></ul>
+        </article>
+        <article class="panel">
+          <div class="ph"><h2>Claude Code</h2><span class="c" id="cc-count"></span></div>
+          <div id="cc"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Teléfono: barra de abajo -->
+  <nav class="dock" aria-label="Pantallas">
+    <button type="button" data-screen="harvey" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6" class="f"/></svg>Harvey</button>
+    <button type="button" data-screen="oficina"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="1.5"/><path d="M3.5 10h17M10 10v10"/></svg>Oficina</button>
+    <button type="button" data-screen="tablero"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="11" rx="1"/><rect x="15.5" y="4" width="5" height="7" rx="1"/></svg>Tablero<b class="dot" data-espera hidden></b></button>
+    <button type="button" data-screen="dia"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Día</button>
+    <button type="button" data-screen="mas" id="mas"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" class="f"/><circle cx="12" cy="12" r="1.4" class="f"/><circle cx="18" cy="12" r="1.4" class="f"/></svg>Más</button>
+  </nav>
+</div>
+
+<!-- Teléfono: «Más» y ajustes de voz -->
+<div id="sheet" hidden>
+  <div class="sheet-bg" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <i class="grab" aria-hidden="true"></i>
+    <div class="go">
+      <button type="button" data-screen="biblioteca">Biblioteca</button>
+      <button type="button" data-screen="sistema">Sistema</button>
+    </div>
+    <h2 id="sheet-title">Voz de Harvey</h2>
+    <div class="modes" id="voice-sheet" role="radiogroup" aria-label="Modo de voz">
+      <button type="button" role="radio" data-mode="full"><b>Completa</b><span>Dice todo: frases y respuestas enteras.</span></button>
+      <button type="button" role="radio" data-mode="phrases"><b>Solo frases</b><span>Frases cortas («Recibido, señor»…); las respuestas, en texto.</span></button>
+      <button type="button" role="radio" data-mode="off"><b>Silencio</b><span>Todo en texto.</span></button>
+    </div>
+    <p class="note">Si no oye a Harvey, quite el modo silencio del iPhone (interruptor lateral).</p>
+    <button type="button" id="push-on" class="wide">Activar avisos</button>
+    <p class="note">Le avisa con la app cerrada: órdenes terminadas, autorizaciones y correo importante. De 22:00 a 8:00, solo lo urgente.</p>
+    <button type="button" id="siri-key" class="wide ghost">Copiar llave de Siri</button>
+    <button type="button" id="new-chat-2" class="wide ghost">Nueva conversación</button>
+    <button type="button" class="wide ghost" data-close>Cerrar</button>
+  </div>
+</div>
+
+<!-- Tablero: lector grande del texto a aprobar (APROBAR.md) -->
+<dialog id="ap-leer" class="ap-leer" aria-labelledby="ap-leer-t">
+  <form method="dialog">
+    <span class="bi-ruta">Para aprobar</span><h2 id="ap-leer-t"></h2>
+    <div class="bi-md"></div>
+    <div class="acts"><button type="submit">CERRAR</button></div>
+  </form>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="drop" aria-hidden="true"><div>Suelte aquí para entregárselo a Harvey</div></div>
+
+<div id="login" hidden>
+  <form id="login-form">
+    <svg viewBox="0 0 40 40" class="mark" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="4" class="f"/></svg>
+    <h2>HARVEY</h2>
+    <p>Identifíquese, señor.</p>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" aria-label="Contraseña" required>
+    <button type="submit">Entrar</button>
+    <p id="login-error" role="alert"></p>
+  </form>
+</div>
+
+<script src="core.js"></script>
+<script src="hud.js"></script>
+<script src="oficina.js"></script>
+</body>
+</html>

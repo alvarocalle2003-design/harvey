@@ -1,0 +1,7 @@
+{
+  "_nota": "Disparadores de las automatizaciones del iPhone (Atajos > Automatización). Cada atajo llama a /api/siri?disparador=<nombre> con la llave de Siri. «orden» es lo que se le dice a Harvey; «habito» marca un hábito sin IA y contesta con una frase guardada. Se relee en cada uso: puede editarse sin reiniciar.",
+  "alarma": { "orden": "Buenos días, Harvey. (Disparador del iPhone: el señor acaba de apagar la alarma y se está levantando.) Dale el informe matutino en versión hablada, lo más importante del día y el tiempo." },
+  "salir_casa": { "orden": "(Disparador del iPhone: el señor acaba de salir de casa.) En una o dos frases: el tiempo que va a hacer y su próximo compromiso de hoy, si lo hay. Si no hay nada destacable, deséale un buen día en una frase." },
+  "llegar_casa": { "orden": "(Disparador del iPhone: el señor acaba de llegar a casa.) Dale la bienvenida en una frase. Si le quedan hábitos por marcar hoy o hay algo importante para mañana, díselo en otra; si no, solo la bienvenida." },
+  "gimnasio": { "habito": ["gym", "si"], "frase": "habito_hecho" }
+}

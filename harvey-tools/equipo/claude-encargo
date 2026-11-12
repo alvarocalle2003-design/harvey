@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+# Encargos a Claude Code en segundo plano para Leonardo (/opt/data/bin/claude-encargo). El terminal de Hermes corta a los
+# 7 minutos y un encargo de programación tarda más: así Claude sigue trabajando y Leonardo mira cómo va.
+#   claude-encargo lanzar <carpeta del repo> <ENCARGO.md> [programar|documentar|revisar]
+#   claude-encargo estado <ENCARGO.md>
+#   claude-encargo seguir <ENCARGO.md> "<qué corregir>"     (misma conversación de Claude: no hay que volver a explicarlo todo)
+# Junto al ENCARGO.md deja <nombre>.claude.jsonl (lo que va haciendo), .claude.err y .claude.json (datos del encargo).
+import json, os, subprocess, sys, time
+
+CLAUDE = os.environ.get("CLAUDE_ENCARGO_BIN", "claude")  # solo la autoprueba lo cambia
+TODO = "Read,Edit,Write,Bash,Glob,Grep"
+MODOS = {  # modelo, esfuerzo, herramientas, turnos (skill programar-con-claude)
+    "programar": ("claude-opus-5-5", "medium", TODO, 80),
+    "documentar": ("sonnet", None, TODO, 40),
+    "revisar": ("sonnet", None, "Read,Glob,Grep", 30),
+}
+
+
+def rutas(encargo):
+    base = os.path.splitext(os.path.abspath(encargo))[0]
+    return base + ".claude.json", base + ".claude.jsonl", base + ".claude.err"
+
+
+def vivo(pid):
+    try:
+        os.kill(pid, 0)
+    except (OSError, TypeError):
+        return False
+    try:  # un proceso ya terminado pero sin recoger (zombi) no cuenta
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().split(")")[-1].split()[0] != "Z"
+    except OSError:
+        return True
+
+
+def leer_meta(encargo):
+    meta, _, _ = rutas(encargo)
+    try:
+        with open(meta, encoding="utf-8") as f:
+            return json.load(f)
+    except OSError:
+        sys.exit(f"No hay ningún encargo lanzado con {encargo}")
+
+
+def arranca(repo, encargo, modo, texto, sesion=None):
+    model, esfuerzo, tools, turnos = MODOS[modo]
+    meta, jsonl, err = rutas(encargo)
+    cmd = [CLAUDE, "-p", texto, "--model", model, "--max-turns", str(turnos), "--allowedTools", tools,
+           "--output-format", "stream-json", "--verbose"]
+    if esfuerzo:
+        cmd += ["--effort", esfuerzo]
+    if modo != "revisar":
+        cmd += ["--permission-mode", "acceptEdits"]
+    if sesion:
+        cmd += ["--resume", sesion]
+    with open(jsonl, "w") as out, open(err, "w") as e:
+        # sesión propia: sigue viva cuando el terminal de Hermes cierra la orden
+        p = subprocess.Popen(cmd, cwd=repo, stdin=subprocess.DEVNULL, stdout=out, stderr=e, start_new_session=True)
+    with open(meta, "w", encoding="utf-8") as f:
+        json.dump({"repo": repo, "modo": modo, "pid": p.pid, "inicio": time.time(), "sesion": sesion}, f)
+    print(f"Claude Code trabajando en segundo plano ({modo}, {model}) en {repo}.\n"
+          f"Mira cómo va con: claude-encargo estado {encargo}")
+
+
+def lanzar(repo, encargo, modo="programar"):
+    if modo not in MODOS:
+        sys.exit(f"Modo desconocido: {modo} (programar, documentar o revisar)")
+    repo = os.path.abspath(repo)
+    if not os.path.isdir(repo):
+        sys.exit(f"No existe la carpeta {repo}")
+    with open(encargo, encoding="utf-8") as f:
+        texto = f.read().strip()
+    if not texto:
+        sys.exit(f"{encargo} está vacío")
+    # nunca dos Claude a la vez en el mismo repositorio (se pisarían los archivos)
+    for raiz, _, archivos in os.walk("/opt/data/workspace"):
+        for a in archivos:
+            if a.endswith(".claude.json"):
+                try:
+                    with open(os.path.join(raiz, a), encoding="utf-8") as f:
+                        m = json.load(f)
+                except (OSError, ValueError):
+                    continue
+                if m.get("repo") == repo and vivo(m.get("pid")):
+                    sys.exit(f"Ya hay un encargo de Claude trabajando en {repo} ({os.path.join(raiz, a)}): espera a que acabe.")
+    arranca(repo, encargo, modo, texto)
+
+
+def resumen(jsonl):
+    pasos, ultimo, dice, fin = 0, "", "", None
+    try:
+        with open(jsonl, encoding="utf-8", errors="replace") as f:
+            for linea in f:
+                try:
+                    ev = json.loads(linea)
+                except ValueError:
+                    continue
+                if ev.get("type") == "assistant":
+                    for b in ev.get("message", {}).get("content", []):
+                        if b.get("type") == "tool_use":
+                            pasos += 1
+                            arg = b.get("input", {})
+                            ultimo = f"{b.get('name')} {arg.get('file_path') or arg.get('command') or arg.get('pattern') or ''}".strip()[:120]
+                        elif b.get("type") == "text" and b.get("text", "").strip():
+                            dice = b["text"].strip()
+                elif ev.get("type") == "result":
+                    fin = ev
+    except OSError:
+        pass
+    return pasos, ultimo, dice, fin
+
+
+def git(repo, *args):
+    r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
+    return (r.stdout or r.stderr).strip()
+
+
+def estado(encargo):
+    m = leer_meta(encargo)
+    _, jsonl, err = rutas(encargo)
+    pasos, ultimo, dice, fin = resumen(jsonl)
+    minutos = round((time.time() - m["inicio"]) / 60)
+    if vivo(m["pid"]) and not fin:
+        print(f"TRABAJANDO · {minutos} min · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
+        if dice:
+            print(f"Dice: {dice[-600:]}")
+        return
+    if fin:
+        ok = not fin.get("is_error") and fin.get("subtype") == "success"
+        print(f"TERMINADO {'bien' if ok else 'con problemas (' + str(fin.get('subtype')) + ')'} · {fin.get('num_turns')} turnos · "
+              f"{round(fin.get('duration_ms', 0) / 60000)} min")
+        print("\nINFORME DE CLAUDE:\n" + str(fin.get("result") or dice or "(sin texto)")[-4000:])
+        if fin.get("session_id"):
+            m["sesion_fin"] = fin["session_id"]
+            meta, _, _ = rutas(encargo)
+            with open(meta, "w", encoding="utf-8") as f:
+                json.dump(m, f)
+    else:
+        try:
+            with open(err, encoding="utf-8", errors="replace") as f:
+                cola = f.read()[-1500:]
+        except OSError:
+            cola = ""
+        print(f"SE PARÓ SIN TERMINAR · {minutos} min · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
+        if cola:
+            print("Error:\n" + cola)
+    print("\nCAMBIOS EN EL REPOSITORIO:\n" + (git(m["repo"], "status", "--short") or "(ninguno)"))
+    stat = git(m["repo"], "diff", "--stat")
+    if stat:
+        print(stat)
+
+
+def seguir(encargo, texto):
+    m = leer_meta(encargo)
+    if vivo(m["pid"]):
+        sys.exit("Claude sigue trabajando en ese encargo: espera a que acabe (claude-encargo estado).")
+    if "sesion_fin" not in m:
+        estado(encargo)  # recoge la sesión si aún no se había mirado
+        m = leer_meta(encargo)
+    if not m.get("sesion_fin"):
+        sys.exit("Ese encargo no dejó conversación que seguir: lánzalo de nuevo con un ENCARGO.md corregido.")
+    _, jsonl, _ = rutas(encargo)
+    os.replace(jsonl, jsonl[:-6] + ".anterior.jsonl")
+    arranca(m["repo"], encargo, m["modo"], texto, m["sesion_fin"])
+
+
+if __name__ == "__main__":
+    a = sys.argv[1:]
+    if a[:1] == ["lanzar"] and len(a) in (3, 4):
+        lanzar(*a[1:])
+    elif a[:1] == ["estado"] and len(a) == 2:
+        estado(a[1])
+    elif a[:1] == ["seguir"] and len(a) == 3:
+        seguir(a[1], a[2])
+    else:
+        sys.exit(__doc__ or "Uso: claude-encargo lanzar <repo> <ENCARGO.md> [programar|documentar|revisar] | "
+                 "estado <ENCARGO.md> | seguir <ENCARGO.md> \"<qué corregir>\"")

@@ -1,0 +1,38 @@
+{
+  "_nota": "Repositorio de frases de Harvey. Cada frase se genera con la voz de Google la primera vez que se usa y se guarda en disco: después sale al instante. Máximo 80 caracteres por frase. Puedes añadir, quitar o cambiar frases libremente. Tono: mayordomo británico, ironía seca solo de vez en cuando.",
+
+  "saludo_madrugada": ["Trabajando hasta tarde, señor. Todos los sistemas operativos.", "Buenas noches, señor. Sigo de guardia.", "A estas horas, señor, solo quedamos usted, yo y los servidores.", "Trasnochando otra vez, señor. Yo no duermo, así que no le juzgo."],
+  "saludo_manana": ["Buenos días, señor. Todos los sistemas operativos.", "Buenos días, señor. Listo para empezar la jornada.", "Bienvenido, señor. Sistemas en línea.", "Buenos días, señor. El café es cosa suya; del resto me ocupo yo.", "Buenos días, señor. Lo he tenido todo vigilado mientras descansaba."],
+  "saludo_tarde": ["Buenas tardes, señor. Todos los sistemas operativos.", "Buenas tardes, señor. A su disposición.", "Bienvenido de nuevo, señor.", "Buenas tardes, señor. Todo en orden por aquí, que no es poco.", "Bienvenido de nuevo, señor. Le he guardado el sitio."],
+  "saludo_noche": ["Buenas noches, señor. Todos los sistemas operativos.", "Buenas noches, señor. ¿En qué puedo ayudarle?", "Buenas noches, señor. ¿Rematamos el día o lo damos por bueno?", "Buenas noches, señor. Sigo aquí, por si las musas llegan tarde."],
+
+  "un_momento": ["Un momento, señor.", "Deme un segundo, señor.", "Enseguida, señor.", "Lo compruebo, señor. Un momento."],
+  "fin_conversacion": ["Quedo a su disposición, señor.", "Aquí estaré, señor.", "Cuando me necesite, señor.", "Un placer, señor."],
+  "espera": ["Sigo con ello, señor. Un momento.", "Esto requiere algo más de tiempo, señor.", "Casi lo tengo, señor.", "Sigo en ello. Lo bueno se hace esperar, señor.", "Me está costando más de lo previsto, señor. No me rindo."],
+  "cancelado": ["Orden cancelada, señor.", "Entendido, lo dejo.", "Como desee, señor. Aquí no ha pasado nada."],
+  "error": ["Me temo que algo ha fallado, señor.", "Disculpe, señor. No he podido completarlo.", "Algo se ha torcido, señor. Lo miro con calma."],
+  "aprobacion": ["Señor, necesito su autorización para continuar.", "Disculpe, señor. Requiero su visto bueno.", "Antes de seguir, señor, necesito su permiso."],
+  "archivo": ["Archivo recibido, señor. Lo examino.", "Recibido, señor. Analizando el archivo.", "Recibido, señor. Déjeme echarle un vistazo."],
+
+  "pensamiento": ["Señor, se me ha ocurrido algo.", "Disculpe la interrupción, señor. Una idea.", "Señor, si me permite una sugerencia.", "Un apunte rápido, señor."],
+  "recordatorio": ["Señor, le recuerdo algo.", "Señor, un recordatorio.", "Señor, ha llegado la hora de lo que me pidió."],
+  "correo_importante": ["Señor, acaba de llegar un correo importante.", "Disculpe, señor. Tiene un correo que requiere su atención."],
+  "reunion_pronto": ["Señor, tiene un compromiso en quince minutos.", "Le recuerdo, señor, que en breve tiene un evento en la agenda.", "Señor, en quince minutos le esperan. Buen momento para ir cerrando."],
+  "tareas_hoy": ["Señor, tiene tareas que vencen hoy.", "Un recordatorio, señor: hay tareas pendientes para hoy.", "Señor, hoy vencen algunas tareas. Prefiero decírselo ahora que mañana."],
+  "habito_hecho": ["Anotado, señor. Así se hace.", "Apuntado. Un paso más, señor.", "Bien hecho, señor. Queda registrado.", "Registrado, señor. La constancia empieza a notarse.", "Hecho. Su yo del futuro se lo agradecerá, señor.", "Anotado. A este paso tendré que ampliar la tabla, señor."],
+  "habitos_completo": ["Los tres hábitos de hoy, cumplidos. Excelente, señor.", "Día redondo, señor. Así se construye la constancia.", "Pleno de hábitos, señor. Hoy no tengo nada que reprocharle."],
+  "plazo_cerca": ["Señor, uno de sus objetivos tiene el plazo muy cerca.", "Atención, señor: un objetivo entra en zona de riesgo."],
+
+  "ack": [
+    { "si": "h[aá]bito|gimnasio|gym|entren|le[ií]d[oa]|lectura|instagram", "frases": ["Recibido, señor. Registrando sus hábitos."] },
+    { "si": "apunta|anota|añade|crea|agrega|registra", "frases": ["Recibido, señor. Anotando la tarea.", "Entendido. Lo apunto ahora mismo."] },
+    { "si": "tareas?\\b|pendientes?\\b", "frases": ["Recibido. Reviso sus tareas.", "Entendido, señor. Consulto sus pendientes."] },
+    { "si": "correos?\\b|email|mail|bandeja", "frases": ["Recibido. Reviso su correo.", "Entendido, señor. Abriendo la bandeja de entrada."] },
+    { "si": "agenda|calendario|reuni[oó]n|evento|cita|mañana|semana", "frases": ["Recibido. Consulto su agenda.", "Entendido, señor. Reviso el calendario."] },
+    { "si": "objetivos?|notion|panel|progreso", "frases": ["Recibido. Abro su panel de objetivos."] },
+    { "si": "recu[eé]rdame|av[ií]same|recordatorio", "frases": ["Por supuesto, señor. Lo programo."] },
+    { "si": "busca|investiga|averigua|compara", "frases": ["Enseguida, señor. Investigando.", "Recibido. Me pongo a buscar."] },
+    { "si": "programa|c[oó]digo|script|app|web", "frases": ["Entendido, señor. Me pongo con el desarrollo."] },
+    { "si": "", "frases": ["Recibido, señor.", "Entendido. Me pongo con ello.", "Enseguida, señor.", "A sus órdenes. Un momento.", "Considérelo hecho, señor.", "Enseguida, señor. Para eso estoy."] }
+  ]
+}

@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+// captura-html <archivo.html o URL> <salida.png> [ancho] [alto]
+// Foto nítida (a doble resolución) de una página con el Chrome de Hermes: para mockups y piezas visuales.
+// Espera a que carguen fuentes e imágenes (Google Fonts y fotos de la web del cliente sirven). Nunca tarda más de 40 s.
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+const [entrada, salida, ancho = '1600', alto = '1000'] = process.argv.slice(2);
+if (!salida) { console.error('Uso: captura-html <archivo.html|URL> <salida.png> [ancho=1600] [alto=1000]'); process.exit(2); }
+const url = /^(https?|file):/.test(entrada) ? entrada : 'file://' + resolve(entrada);
+const perfil = mkdtempSync(join(tmpdir(), 'captura-'));
+const puerto = 9400 + Math.floor(Math.random() * 500);
+// --disable-dev-shm-usage: la memoria compartida del contenedor es pequeña y las webs pesadas no se dejan fotografiar
+const chrome = spawn('/opt/hermes/tools/chromium-1208/chrome-linux64/chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+  '--hide-scrollbars', `--remote-debugging-port=${puerto}`, `--user-data-dir=${perfil}`, 'about:blank'], { stdio: 'ignore', detached: true });
+// a todo el grupo: Chrome deja procesos hijos que, si no, se quedan vivos
+const fin = (codigo, msg) => { try { process.kill(-chrome.pid, 'SIGKILL'); } catch {} rmSync(perfil, { recursive: true, force: true }); (codigo ? console.error : console.log)(msg); process.exit(codigo); };
+setTimeout(() => fin(1, `No se pudo capturar ${url} (más de 40 s)`), 40_000).unref();
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let pestañas;
+for (let i = 0; i < 40 && !pestañas; i++) { await espera(250); pestañas = await fetch(`http://127.0.0.1:${puerto}/json`).then((r) => r.json()).catch(() => null); }
+if (!pestañas) fin(1, 'Chrome no arrancó');
+const ws = new WebSocket(pestañas.find((t) => t.type === 'page').webSocketDebuggerUrl);
+await new Promise((r) => { ws.onopen = r; });
+let id = 0; const pendientes = {}, cargada = [];
+ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id) pendientes[m.id]?.(m.result || { error: m.error }); else if (m.method === 'Page.loadEventFired') cargada.forEach((r) => r()); };
+const manda = (method, params = {}) => new Promise((r) => { pendientes[++id] = r; ws.send(JSON.stringify({ id, method, params })); });
+
+await manda('Page.enable');
+await manda('Emulation.setDeviceMetricsOverride', { width: +ancho, height: +alto, deviceScaleFactor: 2, mobile: +ancho < 600 });
+const carga = new Promise((r) => cargada.push(r));
+await manda('Page.navigate', { url });
+await Promise.race([carga, espera(20_000)]);
+await manda('Runtime.evaluate', { expression: 'document.fonts.ready.then(() => true)', awaitPromise: true });
+await espera(800); // animaciones de entrada
+await manda('Page.bringToFront'); // sin esto, las webs de fuera (otro proceso de Chrome) no se dejan fotografiar
+let { data, error } = await manda('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+if (!data) { // algunas webs pesadas no caben a doble resolución: se repite a la normal
+  await manda('Emulation.setDeviceMetricsOverride', { width: +ancho, height: +alto, deviceScaleFactor: 1, mobile: +ancho < 600 });
+  await espera(1500);
+  ({ data, error } = await manda('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }));
+}
+if (!data) fin(1, `No se pudo capturar ${url}: ${error?.message || 'sin imagen'}`);
+writeFileSync(salida, Buffer.from(data, 'base64'));
+fin(0, `Guardada ${resolve(salida)} (${ancho}×${alto})`);

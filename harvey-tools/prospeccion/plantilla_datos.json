@@ -1,0 +1,47 @@
+{
+  "titulo": "20 clientes potenciales en Bizkaia",
+  "subtitulo": "Webs y herramientas de IA para negocios de menos de 30 personas, con pruebas y guion de venta",
+  "fecha": "28 de octubre de 2026",
+  "para": "el señor",
+  "cifras_portada": [[140, "negocios revisados"], [42, "webs auditadas"], [20, "seleccionados"]],
+  "resumen": "Markdown. 4-8 frases: los 3-5 mejores para llamar esta semana y por qué, patrón común de problemas, ticket total estimado.",
+  "metodologia": "Markdown. Embudo con cifras (candidatos → criba → auditoría → 20), fuentes de candidatos, herramientas (Lighthouse, capturas, reseñas), criterios de puntuación. Breve.",
+  "plan": "Markdown. Orden de llamadas por semanas, qué enviar antes (mini-auditoría en PDF de su web), precio de entrada, seguimiento.",
+  "prospectos": [
+    {
+      "nombre": "Talleres Bilbao 2015",
+      "tipo": "web",
+      "sector": "Taller mecánico multimarca",
+      "municipio": "Bilbao (Zorrotza)",
+      "direccion": "Calle Ejemplo 1, 48013 Bilbao",
+      "telefono": "944 00 00 00",
+      "web": "https://www.talleresbilbao.com",
+      "decisor": "Gerente (nombre si aparece en «Quiénes somos», LinkedIn o el registro)",
+      "tamano": {"estimacion": "5-10 personas", "fuente": "einforma: rango de empleados 2025"},
+      "presencia": "Google Maps 4,3★ (87 reseñas), Facebook sin publicar desde 2022",
+      "puntuacion": 82,
+      "prioridad": "A",
+      "auditoria": "/opt/data/workspace/prospeccion/www.talleresbilbao.com/auditoria.json",
+      "titular": "Web lenta (9 s en móvil) y sin forma de pedir cita",
+      "oferta_corta": "Web nueva con cita online y WhatsApp",
+      "problema": "Markdown. El problema CONCRETO de ESTE negocio, en 3-6 frases, contado con sus datos: qué le pasa a un cliente real que lo busca hoy desde el móvil y qué pierde el negocio.",
+      "evidencias": [
+        "Lighthouse móvil: rendimiento 56/100; el contenido principal tarda 9,0 s (Google recomienda < 2,5 s).",
+        "No hay botón de llamar ni WhatsApp: en el móvil hay que copiar el número a mano.",
+        "Competidor directo a 800 m (Taller X) tiene cita online y 92/100."
+      ],
+      "oferta": "Markdown. Qué construyes exactamente (páginas, funciones), con qué herramientas, qué incluye y qué no.",
+      "precio": "1.200-1.600 € + 35 €/mes mantenimiento",
+      "plazo": "3 semanas",
+      "argumento": "Markdown. Por qué te compraría A TI y AHORA: el dolor en euros o clientes, la comparación con su competencia, la prueba que le enseñas.",
+      "guion": "Markdown. Primera llamada o visita, 6-10 líneas habladas, natural, empezando por lo que has visto en SU web.",
+      "win_win": {"negocio": "Markdown. Qué gana él (más citas, menos llamadas, imagen...).", "tu": "Markdown. Qué ganas tú (ticket, cuota mensual, caso de éxito para el sector, referidos)."},
+      "objeciones": [
+        {"objecion": "Ya tenemos web y nos funciona.", "respuesta": "Respuesta concreta con su dato (9 s de carga, sin botón de llamada...)."},
+        {"objecion": "No tengo tiempo para esto.", "respuesta": "..."}
+      ],
+      "por_confirmar": "Opcional, máx. 2 líneas: lo único que de verdad falta saber antes de llamar.",
+      "fuentes": ["https://www.talleresbilbao.com", "https://www.einforma.com/..."]
+    }
+  ]
+}

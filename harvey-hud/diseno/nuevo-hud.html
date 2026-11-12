@@ -1,0 +1,389 @@
+<title>Nuevo HUD de Harvey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: documento de trabajo de una columna; muestras de estilo y bocetos de pantalla como piezas aparte */
+:root{
+  --bg:#EEF1F2; --paper:#FFFFFF; --fg:#16212B; --muted:#5B6873; --line:#D4DCE1;
+  --accent:#1F5E8C; --accent-soft:#E0EBF3; --ok:#2C7A4B; --warn:#9A5B12; --warn-soft:#F5E9D6;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F151A; --paper:#161E25; --fg:#E2E9EE; --muted:#93A3AF; --line:#2A3640;
+  --accent:#7DB3DA; --accent-soft:#1A2B38; --ok:#7CC69A; --warn:#E3A55E; --warn-soft:#33281A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F151A; --paper:#161E25; --fg:#E2E9EE; --muted:#93A3AF; --line:#2A3640;
+  --accent:#7DB3DA; --accent-soft:#1A2B38; --ok:#7CC69A; --warn:#E3A55E; --warn-soft:#33281A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 72px}
+main{max-width:920px;margin:0 auto;display:grid;gap:60px}
+h1,h2,h3{font-family:var(--body);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:clamp(32px,5vw,46px);font-weight:600;letter-spacing:-.015em}
+h2{font-size:clamp(23px,3.2vw,29px);font-weight:600}
+h3{font-size:18px;font-weight:600}
+p{margin:0;max-width:70ch}
+a{color:var(--accent)}
+ul,ol{margin:0;padding-left:20px}
+li{max-width:68ch}
+section{display:grid;gap:18px}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:18px}
+.small{font-size:14px} .muted{color:var(--muted)}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:10px}
+.rec{border-left:4px solid var(--accent)}
+.pill{display:inline-block;font:600 12px/1 var(--body);padding:5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.two>*{min-width:0}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:15px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 12px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- Antes / después: muestras con colores fijos (no siguen el tema) ---------- */
+.ba{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.ba figure{margin:0;display:grid;gap:8px;min-width:0}
+.ba figcaption{font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.hud{position:relative;overflow:hidden;border-radius:10px;padding:16px;display:grid;gap:12px;min-height:300px;align-content:start;background:#02060c;color:#b9dcea}
+.hud .core{width:110px;height:110px;justify-self:center;position:relative;border-radius:50%}
+.hud .core i{position:absolute;border-radius:50%;inset:0}
+.hud .core i:nth-child(1){border:2px dashed currentColor;opacity:.5;animation:gira 18s linear infinite}
+.hud .core i:nth-child(2){inset:14px;border:1px solid currentColor;opacity:.7;animation:gira 10s linear infinite reverse;border-left-color:transparent}
+.hud .core i:nth-child(3){inset:32px;background:radial-gradient(circle,#fff 0 12%,currentColor 30%,transparent 70%)}
+@keyframes gira{to{transform:rotate(360deg)}}
+.hud .row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:6px 0}
+/* ahora: como el HUD actual */
+.h1{color:#46d9ff;font-family:"IBM Plex Mono",Consolas,monospace;background:#02060c linear-gradient(rgba(70,217,255,.06) 1px,transparent 1px) 0 0/100% 4px}
+.h1 .p{border:1px solid rgba(70,217,255,.45);padding:10px;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));box-shadow:inset 0 0 18px rgba(70,217,255,.18)}
+.h1 .p b{display:block;font:600 12px "IBM Plex Mono",monospace;letter-spacing:.3em;color:#d8f6ff;text-shadow:0 0 8px #46d9ff;border-bottom:1px solid rgba(70,217,255,.3);padding-bottom:6px;margin-bottom:4px}
+.h1 .core{color:#46d9ff;filter:drop-shadow(0 0 10px #46d9ff) drop-shadow(0 0 22px #46d9ff)}
+.h1 .t{color:#d8f6ff;font-size:13px;text-shadow:0 0 6px rgba(70,217,255,.7);text-transform:uppercase;letter-spacing:.08em}
+.h1 .d{font-size:11px;color:#5d8399}
+/* refinado */
+.h2{background:#060C14;color:#B4C6D3;font-family:"IBM Plex Sans",system-ui,sans-serif}
+.h2 .p{border:1px solid #1B2A38;border-radius:6px;padding:10px 12px;background:#0A1320;position:relative}
+.h2 .p::before{content:"";position:absolute;top:-1px;left:-1px;width:10px;height:10px;border-top:2px solid #46d9ff;border-left:2px solid #46d9ff;border-top-left-radius:6px}
+.h2 .p b{display:flex;justify-content:space-between;font:600 11px "IBM Plex Mono",monospace;letter-spacing:.14em;color:#7E93A3;margin-bottom:4px}
+.h2 .p b span{color:#46d9ff;letter-spacing:0}
+.h2 .core{color:#46d9ff;filter:drop-shadow(0 0 12px rgba(70,217,255,.55))}
+.h2 .t{color:#E4EEF4;font-size:14px}
+.h2 .d{font:400 12px "IBM Plex Mono",monospace;color:#6F8595}
+.h2 .att{color:#FFB547}
+@media (prefers-reduced-motion:reduce){.hud .core i{animation:none}}
+
+/* ---------- Bocetos de pantallas ---------- */
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav span{font:500 13px var(--body);padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.nav span b{font-weight:600}
+.wf{display:grid;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto}
+.wf .g{display:grid;gap:8px;min-width:640px}
+.wf .c{border:1px dashed var(--line);border-radius:8px;padding:10px;font-size:13px;color:var(--muted);min-height:54px;display:grid;align-content:start;gap:3px}
+.wf .c b{color:var(--fg);font-size:14px}
+.wf .c.hi{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--fg)}
+.wf .c.new{border:1.5px solid var(--ok)}
+.wf .c.out{border:1.5px dashed var(--warn);opacity:.75;text-decoration:line-through}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+/* Plano de la oficina */
+.plan{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(4,auto);gap:6px;background:#2B2620;padding:10px;border-radius:12px;min-width:640px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:#F1E9DA}
+.plan .r{background:#4A3F33;border-radius:4px;padding:10px;display:grid;gap:4px;align-content:start;min-height:92px;background-image:linear-gradient(#0000 31px,rgba(0,0,0,.12) 32px),linear-gradient(90deg,#0000 31px,rgba(0,0,0,.12) 32px);background-size:32px 32px}
+.plan .r b{font:600 13px "IBM Plex Sans",sans-serif;color:#FFF6E5}
+.plan .who{display:flex;gap:4px;flex-wrap:wrap}
+.plan .who span{background:#1E1A15;border-radius:3px;padding:1px 6px}
+.plan .dir{grid-column:span 2;background-color:#3D4A57}
+.plan .neg{grid-column:span 2;background-color:#5A4636}
+.plan .pro{grid-column:span 2;background-color:#41513F}
+.plan .cal{grid-column:span 2;background-color:#4B4560}
+.plan .reu{grid-column:span 2;background-color:#55503F}
+.plan .cafe{grid-column:span 2;background-color:#5C4A3E}
+.plan .ria{grid-column:span 6;min-height:44px;background:linear-gradient(90deg,#24445A,#2F5872);color:#CFE3EE}
+.plan .buzon{grid-column:span 6;min-height:44px;background-color:#6B5228}
+</style>
+
+<main>
+
+<header style="display:grid;gap:14px">
+  <span class="eyebrow">Documento de diseño · fase 4 · versión 2 · 30/10/2026 · terminado y en uso</span>
+  <h1>Nuevo HUD de Harvey</h1>
+  <p class="lead">Aquí definimos el HUD nuevo antes de escribir una línea de código. Se rediseña entero, en el PC y en el iPhone: estética, pantallas, Oficina, Tablero con objetivos y bandeja, y Biblioteca. La versión 2 recoge todas tus decisiones.</p>
+</header>
+
+<section>
+  <span class="eyebrow">Punto de partida</span>
+  <h2>Qué se queda y qué se va</h2>
+  <div class="two">
+    <div class="box"><h3>Se queda (la esencia)</h3>
+      <ul class="small">
+        <li>Fondo oscuro, el cian como color de Harvey y la sensación de «centro de mando».</li>
+        <li><b>El círculo del centro tal como es</b>: sus anillos y cómo reacciona al escuchar y al hablar.</li>
+        <li>Los efectos que lo hacen espectacular: el barrido de luz cuando llegan datos, el ámbar cuando Harvey usa un sistema, las palabras que aparecen una a una y el arranque.</li>
+        <li>Hablarle con «Oye Harvey», la tecla º y los tres modos de voz.</li>
+        <li>Paneles vivos de agenda, tareas y correo, y los avisos por iniciativa propia.</li>
+      </ul></div>
+    <div class="box"><h3>Se suaviza (lo que lo hace cantoso)</h3>
+      <ul class="small">
+        <li>El brillo en todo: queda solo en el círculo y en lo que pide tu atención. Fuera las líneas de televisor; la rejilla, casi invisible.</li>
+        <li>Esquinas cortadas en cada panel: bordes finos y una sola esquina marcada como firma. Mayúsculas espaciadas solo en los títulos de panel.</li>
+        <li>El arranque se queda, pero más corto y con comprobaciones de verdad (Harvey, datos, voz), sin «nodo París».</li>
+        <li>Los <b>Objetivos 2027</b> de Notion en pantalla: tú mismo dices que lían.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">1 · Estética · decidido</span>
+  <h2>El HUD de ahora, refinado</h2>
+  <p>Misma esencia y mismo círculo; menos ruido. Las dos muestras dibujan un trozo del HUD: a la izquierda como es hoy, a la derecha con los cambios.</p>
+  <div class="ba">
+    <figure><figcaption>Ahora</figcaption>
+      <div class="hud h1"><div class="core" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="p"><b>AGENDA</b><div class="row"><span class="d">11:00</span><span class="t">Reunión Argizari</span><span class="d">·</span></div><div class="row"><span class="d">18:30</span><span class="t">Reu Kargas</span><span class="d">·</span></div></div></div></figure>
+    <figure><figcaption>Refinado</figcaption>
+      <div class="hud h2"><div class="core" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="p"><b>AGENDA <span>2</span></b><div class="row"><span class="d">11:00</span><span class="t">Reunión Argizari</span><span class="d">Bilbao</span></div><div class="row"><span class="d">18:30</span><span class="t">Reu Kargas</span><span class="d att">en 9 h</span></div></div></div></figure>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Elemento</th><th>Cómo queda</th></tr></thead>
+    <tbody>
+      <tr><td>Círculo central</td><td>Igual que ahora, con sus anillos y animaciones. Es lo único con brillo fuerte.</td></tr>
+      <tr><td>Colores</td><td>Cian de Harvey como firma y fondo azul noche un poco más cálido. Ámbar = te necesita, rojo = error, verde = hecho. Nada más.</td></tr>
+      <tr><td>Letra</td><td>Rajdhani (la de ahora) solo para títulos y cifras grandes; el resto en una letra sobria y muy legible, en minúsculas normales.</td></tr>
+      <tr><td>Paneles</td><td>Borde fino, esquinas suaves y una sola esquina cian como firma. Más aire entre líneas.</td></tr>
+      <tr><td>Efectos que se quedan</td><td>Barrido de luz al llegar datos, ámbar «accediendo», palabras una a una, arranque corto y avisos que entran desde la derecha.</td></tr>
+      <tr><td>Efectos que se van</td><td>Líneas de televisor, brillo en textos normales y parpadeos constantes.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">La muestra es orientativa. El paso siguiente es un prototipo de la pantalla Harvey de verdad, con estos cambios, para verlo a tamaño real.</p>
+</section>
+
+<section>
+  <span class="eyebrow">2 · Estructura</span>
+  <h2>Cinco pantallas y una barra de estado</h2>
+  <p>Arriba, una barra fija con lo que siempre importa: hora, conexión con Harvey, cupo de ChatGPT, modo de voz y el número de cosas que te esperan. Debajo, las pantallas:</p>
+  <div class="nav"><span><b>Harvey</b> · hablar y el día</span><span><b>Oficina</b> · el equipo en vivo</span><span><b>Tablero</b> · tarjetas, objetivos y bandeja</span><span><b>Biblioteca</b> · la wiki</span><span><b>Sistema</b> · servidor, cupos y gasto</span></div>
+  <p class="small muted">En el iPhone, las mismas pantallas con la barra de abajo: Harvey, Oficina, Tablero, Día y «Más» (Biblioteca y Sistema).</p>
+  <div class="legend"><span><i style="background:var(--accent-soft);border:1.5px solid var(--accent)"></i>protagonista</span><span><i style="border:1.5px solid var(--ok)"></i>nuevo</span><span><i style="border:1.5px dashed var(--warn)"></i>se quita</span></div>
+</section>
+
+<section>
+  <span class="eyebrow">2.1 · Pantalla Harvey</span>
+  <h3>Hablar con él y ver tu día, sin ruido</h3>
+  <div class="wf"><div class="g" style="grid-template-columns:1fr 1.6fr 1fr">
+    <div class="c"><b>Agenda</b>hoy y mañana, con línea del día</div>
+    <div class="c hi" style="grid-row:span 3"><b>Núcleo + conversación</b>tus palabras, su respuesta y, debajo, los pasos que da («leyendo correo», «creando tarjeta») como líneas discretas. Aquí también salen sus preguntas de sí o no.</div>
+    <div class="c new"><b>Parte del día</b>a las 8:00: qué hay hoy, qué terminó el equipo anoche y qué espera tu visto bueno</div>
+    <div class="c"><b>Tareas</b>las de Notion, como ahora</div>
+    <div class="c new"><b>El equipo ahora</b>una línea por agente: «Vela · midiendo 3 webs» · toca y vas a la Oficina</div>
+    <div class="c"><b>Correo</b>los importantes</div>
+    <div class="c"><b>Hábitos</b>compactos (¿se quedan?)</div>
+  </div>
+  <div class="g" style="grid-template-columns:1fr"><div class="c out"><b>Objetivos 2027 y panel de Operaciones</b>salen de esta pantalla</div></div></div>
+  <p class="small">El panel actual de «Operaciones / Claude Code» se reparte. Lo que hace Harvey mientras te contesta pasa a la conversación. Lo que hace el equipo pasa a la Oficina y al Tablero. Las sesiones de Claude Code se ven al tocar a Forja.</p>
+</section>
+
+<section>
+  <span class="eyebrow">2.2 · Pantalla Oficina</span>
+  <h3>El equipo trabajando, en pixel art</h3>
+  <p>Una planta de oficina vista desde arriba, en tres cuartos como en Stardew Valley, con ventanales a la ría (las dos cosas, decididas). Cada agente tiene su mesa en su área. Lo que ves no es decorado: <b>cada movimiento sale de lo que pasa de verdad en los tableros</b>.</p>
+  <div class="wf" role="img" aria-label="Plano propuesto de la oficina"><div class="plan">
+    <div class="r ria" style="grid-column:span 6"><b>Ventanales a la ría · el Puente Colgante al fondo</b>de día o de noche según la hora real, y con lluvia si llueve en Portugalete</div>
+    <div class="r dir"><b>Dirección</b><div class="who"><span>Harvey</span></div>despacho con la pizarra de objetivos</div>
+    <div class="r reu"><b>Sala de reuniones</b>la reunión de dirección cada 2 h</div>
+    <div class="r neg"><b>Negocio</b><div class="who"><span>Vela</span><span>Eco</span></div>teléfono, pantalla y caballete</div>
+    <div class="r pro"><b>Producción</b><div class="who"><span>Lupa</span><span>Forja</span></div>montañas de papel y tres pantallas</div>
+    <div class="r cal"><b>Calidad y biblioteca</b><div class="who"><span>Lince</span><span>Tomo</span></div>lupa, sellos y estanterías</div>
+    <div class="r cafe"><b>Cocina y sofá</b>donde esperan los agentes sin tarjeta</div>
+    <div class="r buzon"><b>Tu buzón</b>el buzón amarillo del pasillo donde los agentes dejan lo que necesita tu visto bueno, con un «!» que brilla</div>
+  </div></div>
+  <div class="tw"><table>
+    <thead><tr><th>Lo que pasa de verdad</th><th>Lo que ves en la Oficina</th></tr></thead>
+    <tbody>
+      <tr><td>Sin tarjeta</td><td>El agente está en la cocina, en el sofá o mirando la ría.</td></tr>
+      <tr><td>Empieza una tarjeta</td><td>Va a su mesa y se enciende su pantalla.</td></tr>
+      <tr><td>Busca en la web / programa / genera una imagen / pone voz</td><td>Lee en la pantalla, teclea rápido, pinta en el caballete o habla al micro.</td></tr>
+      <tr><td>Pide revisión a Lince</td><td>Lleva una carpeta a la mesa de Lince, que la mira con lupa. Si se la devuelve, la carpeta vuelve con un post-it rojo.</td></tr>
+      <tr><td>Termina y pasa el trabajo a otro</td><td>Camina hasta la mesa del siguiente y le deja la carpeta.</td></tr>
+      <tr><td>Se bloquea con una pregunta</td><td>Aparece un «?» sobre su cabeza.</td></tr>
+      <tr><td>Necesita tu aprobación</td><td>Lleva el sobre a tu buzón y el buzón brilla con un «!».</td></tr>
+      <tr><td>Reunión de dirección</td><td>Harvey va a la sala de reuniones y actualiza la pizarra de objetivos.</td></tr>
+      <tr><td>Tomo archiva</td><td>Coloca un libro en la estantería de la biblioteca.</td></tr>
+      <tr><td>Queda poco cupo y actúa el freno</td><td>Se atenúan las luces y aparece un cartel de «Pausa».</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Al tocar a un agente se abre su ficha al lado: qué tarjeta lleva, su último paso, lo que ha entregado hoy, su sesión de Claude Code (en el caso de Forja) y un botón para dejarle un mensaje en su tarjeta. Abajo, un rótulo pasa con los últimos hechos: «Vela entregó 3 propuestas a Lince». Ya había una primera simulación en el <a href="https://claude.ai/artifact/KdikBKwDC7LVm3BkhWH6Tv" target="_blank" rel="noopener">informe de la Oficina</a>.</p>
+  <div class="box"><h3>Cómo se consigue un pixel art bonito</h3>
+    <ul class="small">
+      <li><b>Arte (gratis)</b>: la base será <a href="https://limezu.itch.io/moderninteriors" target="_blank" rel="noopener">Modern Interiors de LimeZu</a> en su versión gratuita: pixel art de interiores en 16×16 con personajes, de lo más bonito que hay gratis. Su licencia pide citar al autor y no redistribuir los archivos, lo cual encaja con un HUD privado (la leo entera al descargarlo). Los ventanales con la ría y el Puente Colgante los dibujo yo a juego. Si al verlo no te encanta, se prueba otro paquete gratuito antes de seguir.</li>
+      <li><b>Técnica</b>: un lienzo que se dibuja 30 veces por segundo y se escala a números enteros para que los píxeles no se emborronen. Los agentes caminan por rutas reales entre salas.</li>
+      <li><b>Datos</b>: el servidor manda los cambios del tablero en directo, así que la Oficina reacciona al momento. Si no hay red, los agentes se quedan quietos y aparece «sin señal».</li>
+      <li><b>Sonido</b>: ambiente suave y opcional (teclados, lluvia, pasos), con un botón para encenderlo.</li>
+    </ul></div>
+</section>
+
+<section>
+  <span class="eyebrow">2.3 · Pantalla Tablero</span>
+  <h3>Tarjetas, objetivos y bandeja en un solo sitio</h3>
+  <div class="wf"><div class="g" style="grid-template-columns:repeat(5,1fr)">
+    <div class="c hi" style="grid-column:span 5"><b>Franja de objetivos</b>una ficha por objetivo activo: barra de hitos (3 de 5), siguiente paso, cupo gastado hoy y semáforo. Al tocarla, el tablero se filtra a sus tarjetas. Botón «Nuevo objetivo».</div>
+    <div class="c"><b>Por hacer</b>esperan turno o a su tarjeta madre</div>
+    <div class="c"><b>Trabajando</b>con el agente y su último paso</div>
+    <div class="c"><b>En revisión</b>con Lince</div>
+    <div class="c new"><b>Te esperan</b>es la bandeja: aprobar, responder, copiar, rechazar</div>
+    <div class="c"><b>Hecho</b>últimos 7 días, con la entrega</div>
+  </div></div>
+  <ul class="small">
+    <li>Mezcla los tableros Personal y Negocio, con un filtro arriba. Cada tarjeta lleva la cara pixel del agente, así se reconoce igual que en la Oficina.</li>
+    <li>Cuando una tarjeta cambia de columna, se ve deslizarse.</li>
+    <li><b>Objetivos integrados de verdad</b>: cada tarjeta debe saber a qué objetivo pertenece. Es un cambio pequeño en las normas de Harvey: que las marque con el nombre del objetivo. Así el progreso se calcula solo.</li>
+    <li><b>«Nuevo objetivo»</b>: un formulario corto (qué quieres conseguir, para cuándo, qué no hacer y cuánto cupo puede gastar al día). Harvey lo convierte en ficha y te pregunta lo que falte antes de activarlo.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">2.4 · Pantalla Biblioteca · decidido: opción 1 · hecha y aprobada</span>
+  <h3>Qué es la Biblioteca y qué haría esta pantalla</h3>
+  <p class="small">La Biblioteca es la carpeta de notas que abres con Obsidian: quién eres, tu negocio, los clientes, lo aprendido en cada encargo y las instrucciones del equipo. Los agentes la leen antes de trabajar. Es la misma carpeta en tu PC y en el servidor, sincronizada cada 15 minutos. No hace falta un «RAG» aparte, porque esto ya es la memoria del equipo.</p>
+  <div class="two">
+    <div class="box"><h3>Opción 1 · Escaparate</h3>
+      <ul class="small">
+        <li><b>Ver</b>: las notas como páginas bonitas, con buscador. Por ejemplo, tecleas «Itsasalde» y ves su ficha de cliente.</li>
+        <li><b>Ver qué ha cambiado</b>: «Tomo archivó ayer lo aprendido de la prospección».</li>
+        <li><b>Cambiar solo tres cosas con formularios</b>: un objetivo, la ficha de un cliente (por ejemplo, marcar «no contactar») y tu voz de LinkedIn.</li>
+        <li><b>Todo lo demás</b>: un botón «Abrir en Obsidian».</li>
+      </ul></div>
+    <div class="box"><h3>Opción 2 · Sin pantalla propia</h3>
+      <ul class="small">
+        <li>La Biblioteca se queda solo en Obsidian.</li>
+        <li>Los objetivos se crean y cambian desde el Tablero.</li>
+        <li>Las fichas de clientes se ven al tocar un cliente en una tarjeta.</li>
+        <li>Es menos trabajo, pero no tienes buscador en el HUD.</li>
+      </ul></div>
+  </div>
+  <p class="small">No propongo un editor completo dentro del HUD: si escribes la misma nota a la vez en Obsidian y en el HUD, una versión pisa a la otra. Con formularios pequeños ese riesgo es mínimo. Mi recomendación es la <b>opción 1</b>.</p>
+</section>
+
+<section>
+  <span class="eyebrow">2.5 · Pantalla Sistema · hecha y aprobada</span>
+  <h3>Lo que ahora está disperso</h3>
+  <ul class="small">
+    <li>Servidor (memoria y procesador), cupos de ChatGPT y de Claude, y si el freno de cupo está echado.</li>
+    <li><b>Gasto por agente y por objetivo</b>, para controlar en qué se va el cupo.</li>
+    <li>Tareas automáticas (reunión de dirección, avisos, biblioteca) con su última ejecución.</li>
+    <li>Historial de avisos, para recuperar uno que se fue.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">3 · Lo que propongo añadir</span>
+  <h2>Cosas que no habías pedido</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Propuesta</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td><b>Un solo HUD para PC y móvil</b></td><td>Hoy son dos programas distintos que repiten casi todo (más de 1.800 líneas duplicadas). Rediseñar los dos por separado es el doble de trabajo y de fallos. Propongo una sola aplicación que se adapta a la pantalla.</td></tr>
+      <tr><td>Parte del día a las 8:00</td><td>Un resumen hablado y escrito de qué toca hoy y qué hizo el equipo anoche.</td></tr>
+      <tr><td>Buscador rápido (Ctrl+K)</td><td>Escribes «Vela», «Itsasalde» o «aprobar» y saltas a la tarjeta, la ficha o la pantalla.</td></tr>
+      <tr><td>Modo concentración</td><td>Silencia los avisos que no sean urgentes durante una hora o una reunión.</td></tr>
+      <tr><td>Gasto por objetivo</td><td>Cumple tu preferencia de controlar el gasto: ver cuánto cupo se lleva cada objetivo.</td></tr>
+      <tr><td>Clientes</td><td>Las fichas de clientes de Vela, visibles desde el Tablero o la Biblioteca.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <span class="eyebrow">4 · Plan</span>
+  <h2>Orden de trabajo</h2>
+  <ol class="small" style="display:grid;gap:8px">
+    <li><span class="pill">Hecho</span> <b>Prototipo de la pantalla Harvey refinada</b>, a tamaño real: <a href="https://claude.ai/artifact/MyoLKhC8wdfGk4Yg99QPPQ" target="_blank" rel="noopener">ver el prototipo</a> (fuente en <code>harvey-hud/diseno/prototipo/</code>).</li>
+    <li><span class="pill">Hecho y aprobado · 30/10</span> <b>Base común</b>: la aplicación única para PC y móvil, el sistema visual nuevo y la pantalla Harvey.</li>
+    <li><span class="pill">Hecho y aprobado · 30/10</span> <b>Tablero</b> con objetivos y bandeja dentro.</li>
+    <li><span class="pill">Hecha, pulida y aprobada · 30/10</span> <b>Oficina</b>: primero que los agentes se muevan con datos reales, aunque sea con dibujos sencillos. Después el arte bueno, las animaciones y el repaso de los fallos estéticos.</li>
+    <li><span class="pill">Hecho y aprobado · 30/10</span> <b>Biblioteca y Sistema</b>.</li>
+    <li><span class="pill">Hecho · 30/10</span> <b>El HUD viejo, sustituido</b> en el PC y en el iPhone por el nuevo.</li>
+  </ol>
+  <div class="box rec"><h3>Fase 1 · qué ya funciona</h3>
+    <ul class="small">
+      <li>Una sola aplicación para el PC y el iPhone, con la estética del prototipo. El HUD de ahora sigue funcionando igual hasta que se sustituya al final.</li>
+      <li>Pantalla Harvey con datos reales: agenda de hoy y mañana con la línea del día, tareas (las de hoy y las atrasadas en ámbar), correo (tocar uno lo despliega y Harvey lo resume), el núcleo y la conversación con los pasos que da Harvey, el parte del día, «El equipo ahora» y los hábitos compactos que se marcan con un toque.</li>
+      <li>Barra de arriba con conexiones, cupo de ChatGPT (con aviso si se echa el freno), modos de voz y hora.</li>
+      <li>En el iPhone, barra de abajo: Harvey, Oficina, Tablero, Día y Más (Biblioteca, Sistema, voz, avisos y llave de Siri).</li>
+      <li>Se conserva todo lo de antes: «Oye Harvey», la tecla º (también con el HUD detrás), la conversación continua, las autorizaciones, los adjuntos, los avisos con voz, el micro del iPhone, la contraseña, los avisos push y Siri. Nuevo: una orden a medias se recupera al recargar también en el PC.</li>
+      <li>De momento, Sistema muestra lo que ya había; Oficina y Biblioteca tienen un cartel de «en obras».</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 2 · el Tablero</h3>
+    <ul class="small">
+      <li>Arriba, la franja de objetivos: una ficha por objetivo con sus hitos, el plazo, el siguiente paso, un semáforo (verde si los hitos van al ritmo del plazo) y lo que ha gastado hoy. Al tocarla, el tablero enseña solo sus tarjetas.</li>
+      <li>«Nuevo objetivo»: un formulario corto (qué, para cuándo, tablero, qué no hacer y cupo por día). Se lo manda a Harvey, que escribe la ficha y te pregunta lo que falte antes de ponerla en marcha.</li>
+      <li>Debajo, las cinco columnas: Por hacer, Trabajando (con el último paso de cada agente), En revisión, <b>Te esperan</b> (la bandeja, con aprobar, responder, copiar y rechazar) y Hecho en los últimos 7 días. Cada tarjeta lleva la cara pixel de su agente y su objetivo; al tocarla se ve el encargo y la entrega.</li>
+      <li>Filtro Todos, Personal o Negocio. Se actualiza solo cada 15 segundos y las tarjetas que cambian de columna se deslizan.</li>
+      <li>Para que cada tarjeta sepa su objetivo, Harvey tiene una regla nueva: las marca con el nombre de la ficha, y las tarjetas que salen de ella lo heredan solas.</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 3 · la Oficina, primera parte (dibujos sencillos)</h3>
+    <ul class="small">
+      <li>La planta del plano, vista desde arriba: ventanales con la ría, la otra orilla y el Puente Colgante (la barquilla cruza), cielo de día o de noche según la hora y lluvia si llueve en Portugalete. Debajo, Dirección, Reuniones, Negocio, Producción, Calidad y biblioteca, Cocina y tu buzón.</li>
+      <li>Los agentes van andando por rutas reales entre salas y hacen lo de la tabla: a su mesa con la pantalla encendida cuando trabajan, la carpeta a Lince al pedir revisión, el sobre a tu buzón (que brilla con «!») cuando algo necesita tu visto bueno, un «?» si preguntan, Tomo coloca un libro al archivar, Harvey va a la sala en la reunión de dirección, y luces bajas con «PAUSA» si actúa el freno de cupo. Sin tarjeta, en la cocina, el sofá o mirando la ría.</li>
+      <li>Al tocar a un agente se abre su ficha: qué lleva, su último paso, lo entregado hoy, Claude Code en el caso de Forja y un cuadro para dejarle un mensaje en su tarjeta. Abajo pasa un rótulo con lo último que ha ocurrido.</li>
+      <li>Falta: el arte de LimeZu (con tu permiso para descargarlo), animaciones más ricas y el sonido opcional.</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 3 · la Oficina con arte de verdad</h3>
+    <ul class="small">
+      <li>Arte gratuito «Modern Interiors» de LimeZu (descargado con tu permiso; su licencia gratuita es para uso no comercial, y un HUD privado encaja): suelos de madera en espiga, baldosas y piedra, paredes con su color por sala, mesas con monitor, pizarra con patas, mesa de reuniones, estanterías con libros, cocina con nevera, sofá, alfombra, plantas y cuadros.</li>
+      <li>Los siete del equipo son personajes animados que andan y respiran: cada uno con la ropa de su color (Tomo, con el pelo gris) y Harvey de traje. Vela habla por teléfono, Eco pinta en el caballete y el micro sirve para poner voz.</li>
+      <li>Las mismas caras salen en la lista del equipo y en las tarjetas del Tablero, así se reconoce a cada uno en todas partes.</li>
+      <li>Sonido opcional con su botón: lluvia si llueve en Portugalete, teclados y pasos, sin archivos ni gasto.</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 3 · la Oficina pulida (tras tu revisión; aprobada)</h3>
+    <ul class="small">
+      <li><b>Nada cortado</b>: cada mueble se recorta por sus píxeles exactos, no por casillas. Palmeras, árboles, mesas, estanterías, sofá, nevera, pizarra y cuadros salen enteros. Forja tiene una sola mesa larga con sus tres pantallas.</li>
+      <li><b>La ría, redibujada mirando fotos reales</b>: tres ventanales en una pared clara. A la izquierda Las Arenas (casas señoriales, árboles y el paseo); en el centro el Puente Colgante con sus torres de celosía, la viga, los cables colgados, los tirantes y la barquilla blanca que espera en cada orilla y cruza; a la derecha Portugalete en la ladera con la basílica de Santa María. Agua con reflejos, nubes que pasan, gaviotas y algún velero.</li>
+      <li><b>La hora de verdad</b>: el sol sale y se pone cuando lo hace en Portugalete cada día del año. Amanecer, día, atardecer con el sol detrás del puente, noche con luces en las casas y en el puente, y lluvia si llueve.</li>
+      <li><b>Más vida dentro</b>: sillas de oficina en cada mesa (los agentes se ven sentados), mesa de reuniones con sus sillas, cocina con encimera, fregadero y cafetera, quien descansa se sienta de verdad en el sofá, buzón amarillo en el pasillo, moquetas y tarima nuevas, y carteles de madera con letras de píxel nítidas (también los nombres y las burbujas «!» y «?»).</li>
+      <li><b>Quién tapa a quién</b>: muebles y agentes se dibujan de atrás adelante, así nadie camina «por encima» de una mesa. Si se juntan más agentes que sitios libres en un rincón, van a otro: nunca dos en la misma casilla.</li>
+      <li><b>En el iPhone y en pantallas medianas</b>: los píxeles se escalan a números enteros siempre que se puede, el botón de sonido no tapa la vista y la barra de arriba ya no ensancha la página entre 760 y 1180 píxeles.</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 4 · la Biblioteca (aprobada)</h3>
+    <ul class="small">
+      <li><b>Leer y buscar</b>: las notas de la wiki como páginas, con títulos, listas con casillas, tablas y enlaces entre notas que se abren con un toque. El buscador entiende palabras sin acentos y enseña el trozo donde aparece; tecleando «Itsasalde» sale su ficha de cliente.</li>
+      <li><b>Qué ha cambiado</b>: una línea por guardado, con quién lo hizo y cuándo («Tomo archivó ayer…», «Usted cambió en Obsidian…»), y las notas tocadas para abrirlas.</li>
+      <li><b>Solo tres formularios</b>: un objetivo (estado, plazo, cupo por día, hitos y siguiente paso, que queda apuntado en su diario para la reunión de dirección), la ficha de un cliente (estado, por ejemplo «no contactar», último contacto y una nota en el historial) y su voz de LinkedIn (la plantilla de Eco, rotulada en castellano). Cambian solo esos datos.</li>
+      <li><b>Sin pisar a Obsidian</b>: antes de guardar trae la última versión de GitHub; si la nota cambió desde que la abrió (en Obsidian o porque la tocó un agente), no la pisa y le avisa. El cambio queda guardado a su nombre en GitHub y Obsidian lo ve en unos 15 minutos.</li>
+      <li>Para todo lo demás, el botón «Abrir en Obsidian». En el iPhone, la Biblioteca vive en «Más».</li>
+    </ul></div>
+  <div class="box rec"><h3>Fase 4 · Sistema (aprobada)</h3>
+    <ul class="small">
+      <li><b>Servidor</b> (procesador, memoria, disco y lo de hoy) y <b>cupos</b>: ChatGPT con sus dos ventanas y si el freno de cupo está suelto o echado; Claude Code con los tokens de hoy y de la semana (el porcentaje del plan de Claude solo se ve en claude.ai).</li>
+      <li><b>Gasto por agente</b> (hoy y 7 días, con su cara pixel) y <b>por objetivo</b> (hoy, frente a su tope). Lo que cuesta dinero de verdad, como el Gemini de Lince, sale aparte en dólares.</li>
+      <li><b>Tareas automáticas</b> en castellano («cada 2 h de 8 a 22 h»), con qué hace cada una, su última ejecución, si falló, la próxima y, en la reunión de dirección, cuándo despertó a Harvey.</li>
+      <li><b>Historial de avisos</b> de la semana: correo, recordatorios, hábitos, Harvey, equipo y cupo; tocando uno se lee entero.</li>
+    </ul></div>
+  <div class="box rec"><h3>El HUD nuevo, en uso (30/10)</h3>
+    <ul class="small">
+      <li>El HUD del PC y la app del iPhone ya son la aplicación nueva, con sus cinco pantallas. Se hizo copia antes de cambiar nada y se comprobó en los dos.</li>
+      <li>Quedan como ideas para más adelante el buscador rápido (Ctrl+K) y el modo concentración.</li>
+    </ul></div>
+</section>
+
+<section>
+  <span class="eyebrow">5 · Decisiones</span>
+  <h2>Lo decidido</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Decisión</th><th>Elegido</th></tr></thead>
+    <tbody>
+      <tr><td>Estética</td><td><span class="pill">El HUD de ahora, refinado</span> mismo círculo, menos cantoso; los efectos espectaculares se quedan</td></tr>
+      <tr><td>Hábitos en la pantalla Harvey</td><td><span class="pill">Sí, compactos</span></td></tr>
+      <tr><td>Correo en la pantalla Harvey</td><td><span class="pill">Sí</span></td></tr>
+      <tr><td>Vista de la Oficina</td><td><span class="pill">Desde arriba</span> siempre que se vea bonita; ventanales a la ría</td></tr>
+      <tr><td>Arte de la Oficina</td><td><span class="pill">Gratis y que encante</span> base LimeZu Modern Interiors gratuita + ría a medida</td></tr>
+      <tr><td>Biblioteca</td><td><span class="pill">Opción 1 · escaparate</span> leer y buscar, cambiar objetivos, clientes y voz con formularios; lo demás en Obsidian</td></tr>
+      <tr><td>Un solo HUD para PC y móvil</td><td><span class="pill">Sí</span></td></tr>
+      <tr><td>Sonido en la Oficina</td><td><span class="pill">Opcional</span></td></tr>
+      <tr><td>Nombre en pantalla</td><td><span class="pill">HARVEY</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</main>

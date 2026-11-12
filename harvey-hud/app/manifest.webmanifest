@@ -1,0 +1,9 @@
+{
+  "name": "Harvey",
+  "short_name": "Harvey",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#02060c",
+  "theme_color": "#02060c",
+  "icons": [{ "src": "icono.png", "sizes": "256x256", "type": "image/png" }]
+}

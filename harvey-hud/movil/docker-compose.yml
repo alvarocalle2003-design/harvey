@@ -1,0 +1,23 @@
+services:
+  hermes-agent:
+    image: ghcr.io/hostinger/hvps-hermes-agent:latest
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${COMPOSE_PROJECT_NAME}.${TRAEFIK_HOST}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.service=${COMPOSE_PROJECT_NAME}
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=4860
+      # HUD de bolsillo (app del iPhone): servicio s6 harvey-movil en el puerto 7780, con contraseña propia
+      - traefik.http.routers.harvey-movil.rule=Host(`harvey.${TRAEFIK_HOST}`)
+      - traefik.http.routers.harvey-movil.entrypoints=websecure
+      - traefik.http.routers.harvey-movil.tls.certresolver=letsencrypt
+      - traefik.http.routers.harvey-movil.service=harvey-movil
+      - traefik.http.services.harvey-movil.loadbalancer.server.port=7780
+    env_file:
+      - .env
+    volumes:
+      - ./data:/opt/data
+      - ./movil-s6/harvey-movil:/etc/s6-overlay/s6-rc.d/harvey-movil:ro
+      - ./movil-s6/harvey-movil.contents:/etc/s6-overlay/s6-rc.d/user/contents.d/harvey-movil:ro

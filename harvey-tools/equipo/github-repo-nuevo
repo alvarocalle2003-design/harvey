@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# Crea un repositorio PRIVADO en el GitHub del señor y sube ahí la carpeta actual (/opt/data/bin/github-repo-nuevo).
+#   cd /opt/data/workspace/proyectos/<nombre> && github-repo-nuevo <nombre> "<descripción>"
+# La carpeta tiene que ser ya un repositorio git (git init -b main); si aún no tiene commits, hace el primero con todo lo que
+# haya. Nunca pisa un repositorio que ya exista.
+# La llave es GITHUB_TOKEN de /opt/data/.env (la mete el señor con hermes-claves.ps1); no sale en ningún comando.
+import json, os, re, subprocess, sys, urllib.error, urllib.request
+
+CREDENCIAL = "/opt/data/bin/git-credencial-github"
+
+
+def llave():
+    if os.environ.get("GITHUB_TOKEN"):
+        return os.environ["GITHUB_TOKEN"].strip()
+    with open("/opt/data/.env", encoding="utf-8") as f:
+        for linea in f:
+            if linea.startswith("GITHUB_TOKEN="):
+                return linea.split("=", 1)[1].strip().strip('"')
+    sys.exit("No hay GITHUB_TOKEN: el señor tiene que meterla con hermes-claves.ps1")
+
+
+def git(*args, ok=True):
+    r = subprocess.run(["git", *args], capture_output=True, text=True)
+    if ok and r.returncode:
+        sys.exit(f"git {' '.join(args)}: {(r.stderr or r.stdout).strip()}")
+    return r
+
+
+def main(nombre, descripcion=""):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}", nombre):
+        sys.exit("Nombre no válido: solo letras, números, puntos, guiones y guiones bajos (máximo 100).")
+    if git("rev-parse", "--is-inside-work-tree", ok=False).returncode:
+        sys.exit("Esta carpeta no es un repositorio git: haz antes git init -b main.")
+    if git("remote", "get-url", "origin", ok=False).returncode == 0:
+        sys.exit("Este repositorio ya tiene «origin»: ya está en GitHub (git push para subir cambios).")
+    # misma configuración que los demás repos del equipo (los perfiles tienen otro HOME: va en la config local)
+    git("config", "credential.https://github.com.helper", CREDENCIAL)
+    git("config", "user.name", "Equipo de Harvey")
+    git("config", "user.email", "alvarocalle2003-design@users.noreply.github.com")
+    if git("rev-parse", "HEAD", ok=False).returncode:
+        git("add", "-A")
+        git("commit", "-q", "-m", "Primer commit")
+    pet = urllib.request.Request("https://api.github.com/user/repos", method="POST",
+                                 data=json.dumps({"name": nombre, "description": descripcion[:350], "private": True}).encode(),
+                                 headers={"Authorization": f"Bearer {llave()}", "Accept": "application/vnd.github+json",
+                                          "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "equipo-de-harvey"})
+    try:
+        with urllib.request.urlopen(pet, timeout=30) as r:
+            repo = json.load(r)
+    except urllib.error.HTTPError as e:
+        cuerpo = e.read().decode(errors="replace")
+        if e.code == 422 and "already exists" in cuerpo:
+            sys.exit(f"Ya existe un repositorio «{nombre}» en GitHub: elige otro nombre (no se pisa nada).")
+        sys.exit(f"GitHub respondió {e.code}: {cuerpo[:300]}")
+    git("remote", "add", "origin", repo["clone_url"])
+    git("push", "-u", "origin", "HEAD")
+    print(f"Repositorio privado creado y subido: {repo['html_url']}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) not in (2, 3):
+        sys.exit('Uso: github-repo-nuevo <nombre> "<descripción>"  (desde la carpeta del repositorio)')
+    main(*sys.argv[1:])

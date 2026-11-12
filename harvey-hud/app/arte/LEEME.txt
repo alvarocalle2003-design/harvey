@@ -1,0 +1,5 @@
+Arte de la Oficina: «Modern Interiors» (versión gratuita v2.2) de LimeZu, https://limezu.itch.io/moderninteriors
+Licencia (LICENCIA-LimeZu.txt): uso NO comercial; se puede retocar para uso no comercial; no se puede revender.
+El HUD de Harvey es privado y no se vende: encaja. Si algún día se vendiera o publicara, comprar la versión completa.
+Dibujado a mano en oficina.js (no es de LimeZu): la vista de la ría con el Puente Colgante, Las Arenas y Portugalete; las sillas de oficina,
+el buzón, la encimera, la cafetera, el caballete, el micro, la tarima, las moquetas y las letras.

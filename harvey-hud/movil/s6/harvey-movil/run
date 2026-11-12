@@ -1,0 +1,5 @@
+#!/command/with-contenv sh
+# HUD de bolsillo (app del iPhone). s6 lo arranca con el contenedor y lo relanza si se cae.
+export HOME=/opt/data
+cd /opt/data
+exec s6-setuidgid hermes node /opt/data/hud/movil/server.mjs
