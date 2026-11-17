@@ -597,8 +597,9 @@ const atiende = async (req, res) => {
     }
     // Archivos de la app: públicos (no contienen datos); todo lo que trae datos pasa por /api con contraseña.
     // El arte de la Oficina (LimeZu) solo con sesión: su licencia no deja redistribuirlo y esta web da a internet.
-    if (url.pathname.startsWith('/arte/') && !authed(req)) { res.writeHead(401); return res.end(); }
+    // Se comprueba sobre la ruta ya resuelta: '/.//arte/x' no empieza por '/arte/' pero join() lo normaliza al mismo fichero.
     const file = join(PUBLIC, url.pathname === '/' ? 'index.html' : url.pathname);
+    if (file.startsWith(join(PUBLIC, 'arte') + '/') && !authed(req)) { res.writeHead(401); return res.end(); }
     if (req.method !== 'GET' || !file.startsWith(PUBLIC + '/') || !existsSync(file)) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(readFileSync(file));
