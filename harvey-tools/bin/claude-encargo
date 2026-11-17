@@ -8,6 +8,9 @@
 import json, os, subprocess, sys, time
 
 CLAUDE = os.environ.get("CLAUDE_ENCARGO_BIN", "claude")  # solo la autoprueba lo cambia
+# Tope por tanda: el 17/11 un HTML hecho en 8 min tardó 72 porque Claude se atascó con capturas. A los 45 min se corta
+# Claude y todo lo que haya abierto (Chromium incluido); lo hecho queda en la carpeta y «seguir» retoma la conversación.
+TOPE = int(os.environ.get("CLAUDE_ENCARGO_TOPE", 45 * 60))  # segundos; solo la autoprueba lo cambia
 TODO = "Read,Edit,Write,Bash,Glob,Grep"
 MODOS = {  # modelo, esfuerzo, herramientas, turnos (skill programar-con-claude)
     "programar": ("claude-opus-5-5", "medium", TODO, 80),
@@ -45,7 +48,7 @@ def leer_meta(encargo):
 def arranca(repo, encargo, modo, texto, sesion=None):
     model, esfuerzo, tools, turnos = MODOS[modo]
     meta, jsonl, err = rutas(encargo)
-    cmd = [CLAUDE, "-p", texto, "--model", model, "--max-turns", str(turnos), "--allowedTools", tools,
+    cmd = ["timeout", "--kill-after=30", str(TOPE), CLAUDE, "-p", texto, "--model", model, "--max-turns", str(turnos), "--allowedTools", tools,
            "--output-format", "stream-json", "--verbose"]
     if esfuerzo:
         cmd += ["--effort", esfuerzo]
@@ -57,8 +60,8 @@ def arranca(repo, encargo, modo, texto, sesion=None):
         # sesión propia: sigue viva cuando el terminal de Hermes cierra la orden
         p = subprocess.Popen(cmd, cwd=repo, stdin=subprocess.DEVNULL, stdout=out, stderr=e, start_new_session=True)
     with open(meta, "w", encoding="utf-8") as f:
-        json.dump({"repo": repo, "modo": modo, "pid": p.pid, "inicio": time.time(), "sesion": sesion}, f)
-    print(f"Claude Code trabajando en segundo plano ({modo}, {model}) en {repo}.\n"
+        json.dump({"repo": repo, "modo": modo, "pid": p.pid, "inicio": time.time(), "sesion": sesion, "tope": TOPE}, f)
+    print(f"Claude Code trabajando en segundo plano ({modo}, {model}) en {repo}; se para solo a los {TOPE // 60} min.\n"
           f"Mira cómo va con: claude-encargo estado {encargo}")
 
 
@@ -87,7 +90,7 @@ def lanzar(repo, encargo, modo="programar"):
 
 
 def resumen(jsonl):
-    pasos, ultimo, dice, fin = 0, "", "", None
+    pasos, ultimo, dice, fin, sesion = 0, "", "", None, None
     try:
         with open(jsonl, encoding="utf-8", errors="replace") as f:
             for linea in f:
@@ -95,6 +98,7 @@ def resumen(jsonl):
                     ev = json.loads(linea)
                 except ValueError:
                     continue
+                sesion = ev.get("session_id") or sesion  # ya viene en el primer evento: sirve para seguir tras un corte
                 if ev.get("type") == "assistant":
                     for b in ev.get("message", {}).get("content", []):
                         if b.get("type") == "tool_use":
@@ -107,7 +111,7 @@ def resumen(jsonl):
                     fin = ev
     except OSError:
         pass
-    return pasos, ultimo, dice, fin
+    return pasos, ultimo, dice, fin, sesion
 
 
 def git(repo, *args):
@@ -118,7 +122,7 @@ def git(repo, *args):
 def estado(encargo):
     m = leer_meta(encargo)
     _, jsonl, err = rutas(encargo)
-    pasos, ultimo, dice, fin = resumen(jsonl)
+    pasos, ultimo, dice, fin, sesion = resumen(jsonl)
     minutos = round((time.time() - m["inicio"]) / 60)
     if vivo(m["pid"]) and not fin:
         print(f"TRABAJANDO · {minutos} min · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
@@ -141,9 +145,21 @@ def estado(encargo):
                 cola = f.read()[-1500:]
         except OSError:
             cola = ""
-        print(f"SE PARÓ SIN TERMINAR · {minutos} min · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
-        if cola:
-            print("Error:\n" + cola)
+        tope = m.get("tope")
+        if tope and time.time() - m["inicio"] >= tope:
+            print(f"PARADO POR EL TOPE DE {tope // 60} MIN · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
+            print("Lo hecho sigue en la carpeta. Si lo esencial está, pide el informe final con: claude-encargo seguir "
+                  "<ENCARGO.md> \"Para: deja lo que falte como no verificado y escribe el informe final\". Si se atascó en "
+                  "algo (capturas, pruebas), dilo en la tarjeta como límite; no lo relances igual.")
+        else:
+            print(f"SE PARÓ SIN TERMINAR · {minutos} min · {pasos} pasos" + (f" · último: {ultimo}" if ultimo else ""))
+            if cola:
+                print("Error:\n" + cola)
+        if sesion and not m.get("sesion_fin"):  # para que «seguir» retome esta conversación
+            m["sesion_fin"] = sesion
+            meta, _, _ = rutas(encargo)
+            with open(meta, "w", encoding="utf-8") as f:
+                json.dump(m, f)
     print("\nCAMBIOS EN EL REPOSITORIO:\n" + (git(m["repo"], "status", "--short") or "(ninguno)"))
     stat = git(m["repo"], "diff", "--stat")
     if stat:
