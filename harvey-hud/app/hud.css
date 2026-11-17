@@ -598,3 +598,12 @@ body.dragging #drop{display:grid}
 }
 @media (pointer:coarse){.round{width:42px;height:42px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Visor de entregas del equipo (hud.js verEntrega) */
+#visor{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg)}
+#visor .vb{display:flex;align-items:center;gap:14px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top,0px));border-bottom:1px solid var(--line)}
+#visor .vb b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--mono);color:var(--text)}
+#visor .vb a{font:500 11px var(--mono);color:var(--amber);text-decoration:none;letter-spacing:.08em}
+#visor .vb button{width:36px;height:36px;border:1px solid var(--line-hi);border-radius:8px;background:none;color:var(--text);font-size:20px;cursor:pointer}
+#visor .vb :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#visor iframe{flex:1;width:100%;border:0;background:#fff}

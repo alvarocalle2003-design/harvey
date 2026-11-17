@@ -2,7 +2,7 @@
 // así habla con el API de Harvey en 127.0.0.1:8642 sin exponerlo. Traefik lo publica con HTTPS; aquí se pide contraseña.
 // Sin dependencias: node /opt/data/hud/movil/server.mjs
 import http from 'node:http';
-import { readFileSync, existsSync, mkdirSync, createWriteStream, writeFileSync, unlinkSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, createWriteStream, createReadStream, writeFileSync, unlinkSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -576,6 +576,22 @@ const routes = {
   },
 };
 
+// Entregas del equipo (informes, HTML, PDF): se ven en la app sin descargarlas. Las escriben agentes que leen la web, así
+// que van en «sandbox» (origen opaco: su JavaScript no alcanza la app, sus cookies ni su API) y solo dentro de la app.
+const ENTREGAS = '/opt/data/workspace/entregas';
+const TIPOS_ENTREGA = { '.html': 'text/html; charset=utf-8', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.csv': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
+function entrega(res, url) {
+  let file = '';
+  try { file = realpathSync(join(ENTREGAS, decodeURIComponent(url.pathname.slice('/entregas/'.length)))); } catch {}
+  const tipo = TIPOS_ENTREGA[extname(file).toLowerCase()];
+  // realpath: un enlace simbólico dentro de entregas/ no puede sacar un archivo de fuera (p. ej. el .env)
+  if (!tipo || !file.startsWith(ENTREGAS + '/') || !statSync(file).isFile()) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { 'Content-Type': tipo, 'Cache-Control': 'no-store', 'X-Frame-Options': 'SAMEORIGIN',
+    'Content-Security-Policy': "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads; frame-ancestors 'self'" });
+  createReadStream(file).pipe(res);
+}
+
 process.on('uncaughtException', (e) => console.error('[error]', e)); // un fallo puntual no tumba el servidor
 
 const atiende = async (req, res) => {
@@ -588,12 +604,18 @@ const atiende = async (req, res) => {
     if (req.pc) { // puerto del PC: solo la API, con la llave del API de Harvey
       const given = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (!env.API_SERVER_KEY || !same(given, env.API_SERVER_KEY)) return json(res, { error: 'Llave no válida' }, 401);
+      if (req.method === 'GET' && url.pathname.startsWith('/entregas/')) return entrega(res, url);
       if (!route || url.pathname.startsWith('/api/siri') || url.pathname === '/api/login') return json(res, { error: 'No existe' }, 404);
       return await route(req, res, url);
     }
     if (route) {
       if (!['/api/login', '/api/siri', '/api/siri/sigue'].includes(url.pathname) && !authed(req)) return json(res, { error: 'Necesita iniciar sesión' }, 401);
       return await route(req, res, url);
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/entregas/')) {
+      if (authed(req)) return entrega(res, url);
+      res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end('<meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">Abra este enlace desde la app de Harvey (con su sesión iniciada).</p>');
     }
     // Archivos de la app: públicos (no contienen datos); todo lo que trae datos pasa por /api con contraseña.
     // El arte de la Oficina (LimeZu) solo con sesión: su licencia no deja redistribuirlo y esta web da a internet.

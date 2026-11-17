@@ -572,6 +572,29 @@ function adoptWakes(list = []) {
   }
 }
 
+// ---------- Entregas del equipo: se abren dentro de la app, sin descargar ----------
+// Harvey enlaza https://harvey.srv…/entregas/<carpeta>/<archivo> (movil/server.mjs; en el PC llega por el túnel). Se muestran
+// en un visor a pantalla completa con «sandbox»: lo hicieron agentes y no debe alcanzar la app.
+const ENTREGA_RE = /^(?:https:\/\/harvey\.srv2061704\.hstgr\.cloud)?(\/entregas\/[^?#\s]+)$/;
+function verEntrega(ruta) {
+  $('#visor')?.remove();
+  const v = document.createElement('div');
+  v.id = 'visor'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
+  v.setAttribute('aria-label', 'Entrega del equipo');
+  let nombre = ruta.split('/').pop(); try { nombre = decodeURIComponent(nombre); } catch {}
+  v.innerHTML = `<div class="vb"><b>${esc(nombre)}</b><a href="${esc(ruta)}" download>DESCARGAR</a><button type="button" aria-label="Cerrar la entrega">×</button></div>
+    <iframe title="${esc(nombre)}" src="${esc(ruta)}"></iframe>`; // el aislamiento lo pone el servidor (CSP sandbox): origen opaco
+  v.querySelector('button').onclick = () => v.remove();
+  document.body.append(v);
+  v.querySelector('button').focus();
+}
+document.addEventListener('click', (e) => {
+  const m = e.target.closest?.('a[href]')?.getAttribute('href').match(ENTREGA_RE);
+  if (m && !e.target.closest('#visor')) { e.preventDefault(); verEntrega(m[1]); }
+});
+// Esc cierra el visor antes que nada (sin cancelar la orden en marcha)
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#visor')) { $('#visor').remove(); e.stopImmediatePropagation(); } }, true);
+
 // ---------- Autorizaciones y respuestas rápidas ----------
 const CHOICE_LABELS = { once: 'Aprobar', session: 'Aprobar siempre hoy', deny: 'Rechazar' };
 function showApproval(ev) {

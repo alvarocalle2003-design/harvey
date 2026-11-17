@@ -1072,10 +1072,13 @@ window.Oficina = (() => {
     caja.querySelector('.x').onclick = () => { caja.hidden = true; sel = null; };
     caja.querySelector('.of-msg')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const texto = caja.querySelector('#of-texto').value.trim();
+      const texto = caja.querySelector('#of-texto').value.trim(), boton = e.target.querySelector('button[type=submit]');
       if (!texto) return caja.querySelector('#of-texto').focus();
+      if (boton.disabled) return; // el 17/11 un doble toque dejó el mismo mensaje dos veces
+      boton.disabled = true;
       try { await api('comentario', { tablero: t.tablero, id: t.id, texto }); toast({ title: 'Mensaje dejado', text: `${nm} lo verá en su tarjeta.` }); caja.querySelector('#of-texto').value = ''; }
       catch (err) { toast({ title: 'No se pudo dejar el mensaje', text: err.message, warn: true }); }
+      finally { boton.disabled = false; }
     });
   }
 

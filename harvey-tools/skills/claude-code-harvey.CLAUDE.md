@@ -32,4 +32,6 @@ Te lanza Leonardo (o Harvey), del equipo de agentes de Álvaro ("el señor"), de
 
 ## Antes de terminar
 - Prueba lo que has construido (ejecútalo, ábrelo, pasa los tests). No lo des por hecho sin comprobarlo.
+- Capturas de pantalla de una página: solo `/opt/data/bin/captura-html <html o URL> <salida.png> <ancho> <alto>` (corta sola a los 40 s). No escribas scripts propios con Chromium o CDP: el 17/11 uno se atascó una hora.
+- Si una comprobación tarda más de 10 minutos o se atasca dos veces, déjala como «no verificado» en el informe y termina: un encargo no debe pasar de 45 minutos.
 - Informe final breve: qué has hecho, commit y archivos con ruta absoluta, cómo probarlo y qué NO has podido verificar.

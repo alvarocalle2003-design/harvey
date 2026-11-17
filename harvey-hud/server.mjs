@@ -87,7 +87,9 @@ async function reenvia(req, res, url) {
     if (!ac.signal.aborted && ++fallos >= 3) { fallos = 0; console.error('[túnel] 3 fallos seguidos: lo reabro'); tunel?.kill(); }
     throw e;
   }
-  res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  const extra = {}; // las entregas del equipo llegan en «sandbox»: esas cabeceras tienen que pasar tal cual
+  for (const h of ['content-security-policy', 'x-frame-options']) if (r.headers.get(h)) extra[h] = r.headers.get(h);
+  res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'application/octet-stream', 'Cache-Control': 'no-cache', ...extra });
   if (r.body) Readable.fromWeb(r.body).on('error', () => res.end()).pipe(res); else res.end();
 }
 
@@ -200,7 +202,7 @@ http.createServer(async (req, res) => {
   try {
     const route = routes[`${req.method} ${url.pathname}`];
     if (route) return await route(req, res, url);
-    if (url.pathname.startsWith('/api/')) return await reenvia(req, res, url);
+    if (url.pathname.startsWith('/api/') || (req.method === 'GET' && url.pathname.startsWith('/entregas/'))) return await reenvia(req, res, url);
     const file = join(PUBLIC, url.pathname === '/' ? 'index.html' : url.pathname);
     if (!file.startsWith(PUBLIC) || !existsSync(file)) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
